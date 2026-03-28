@@ -1,0 +1,21 @@
+spring:
+
+  # PostgreSQL
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:5432/tenjudge
+    username: postgres
+    password: "051223"
+
+  # Redis
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 0
+
+# MyBatis
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  mapper-locations: classpath*:/mappers/**/*.xml
