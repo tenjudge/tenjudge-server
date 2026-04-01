@@ -6,6 +6,10 @@ import io.github.yush1x.tenjudge.server.exception.BizException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+/*
+ * 检查用户权限是否满足要求
+ */
+
 @Service
 @RequiredArgsConstructor
 public class AuthChecker {

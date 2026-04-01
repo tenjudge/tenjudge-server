@@ -8,6 +8,11 @@ public enum Code {
 
     UNAUTHORIZED(10001, "unauthorized"),
     FORBIDDEN(10002, "forbidden"),
+    USERNAME_INVALID(10003, "username is invalid"),
+    PASSWORD_INVALID(10004, "password is invalid"),
+    EMAIL_INVALID(10005, "email is invalid"),
+    ROLE_INVALID(10006, "role is invalid"),
+
     ERROR(1, "error");
 
     public final int code;

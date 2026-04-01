@@ -17,7 +17,6 @@ public class Users {
     @TableId(type = IdType.AUTO)
     private Long id;
     private String username;
-    @JsonIgnore
     private String password;
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;

@@ -18,4 +18,6 @@ public class StpService {
     public Long getLoginIdAsLong() {
         return StpUtil.getLoginIdAsLong();
     }
+
+
 }
