@@ -21,7 +21,15 @@ public class UserQueryService {
         return user.getRole();
     }
 
-    // 获取用户加密后的密码（通过用户名）
+    // 获取用户信息（通过用户ID）
+    public User selectById(Long userId) {
+        LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.select(User::getPassword)
+                .eq(User::getId, userId);
+        return userMapper.selectOne(queryWrapper);
+    }
+
+    // 获取用户信息（通过用户名）
     public User selectByUsername(String username) {
         LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.select(User::getPassword)
@@ -29,7 +37,7 @@ public class UserQueryService {
         return userMapper.selectOne(queryWrapper);
     }
 
-    // 获取用户加密后的密码（通过邮箱）
+    // 获取用户信息（通过邮箱）
     public User selectByEmail(String email) {
         LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.select(User::getPassword)

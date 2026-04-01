@@ -1,4 +1,4 @@
-package io.github.yush1x.tenjudge.server.auth;
+package io.github.yush1x.tenjudge.server.auth.service;
 
 import cn.dev33.satoken.secure.BCrypt;
 import io.github.yush1x.tenjudge.server.auth.dto.LoginRequestDTO;
@@ -6,13 +6,18 @@ import io.github.yush1x.tenjudge.server.auth.dto.RegisterRequestDTO;
 import io.github.yush1x.tenjudge.server.auth.entity.User;
 import io.github.yush1x.tenjudge.server.auth.persistence.UserQueryService;
 import io.github.yush1x.tenjudge.server.auth.persistence.UserUpdateService;
-import io.github.yush1x.tenjudge.server.auth.service.AuthChecker;
-import io.github.yush1x.tenjudge.server.auth.service.RequestChecker;
-import io.github.yush1x.tenjudge.server.auth.service.StpService;
+import io.github.yush1x.tenjudge.server.auth.utils.Converter;
+import io.github.yush1x.tenjudge.server.auth.vo.LoginVO;
+import io.github.yush1x.tenjudge.server.auth.vo.RegisterVO;
 import io.github.yush1x.tenjudge.server.common.Code;
 import io.github.yush1x.tenjudge.server.exception.BizException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+
+/*
+ * 检查登录/是否是管理员
+ * 登录/登出/注册
+ */
 
 @Service
 @RequiredArgsConstructor
@@ -36,7 +41,7 @@ public class AuthService {
     }
 
     // 注册用户，返回id
-    public Long register(RegisterRequestDTO  registerRequestDTO) {
+    public RegisterVO register(RegisterRequestDTO  registerRequestDTO) {
         requestChecker.checkRegisterRequest(registerRequestDTO);
 
         // 检查管理员注册权限
@@ -48,27 +53,26 @@ public class AuthService {
         String password_hash = BCrypt.hashpw(registerRequestDTO.getPassword(), BCrypt.gensalt());
         registerRequestDTO.setPassword(password_hash);
 
-        Long userId;
+        RegisterVO registerVO = new RegisterVO();
         try {
-            userId = userUpdateService.insert(registerRequestDTO);
+            registerVO.setId(userUpdateService.insert(registerRequestDTO));
         } catch (Exception e) {
             throw new BizException(Code.REGISTER_FAILED);
         }
 
-        return userId;
+        return registerVO;
     }
 
     // 用户登录，返回token
-    public String login(LoginRequestDTO loginRequestDTO) {
-        /*
-        mock时usersQueryService返回空值
+    public LoginVO login(LoginRequestDTO loginRequestDTO) {
 
-         */
         String account = loginRequestDTO.getAccount();
         String password = loginRequestDTO.getPassword();
         if (account == null || password == null) {
             throw new BizException(Code.LOGIN_FAILED);
         }
+
+        // 验证邮箱登录 or 用户名登录
         User user;
         if (account.contains("@")) {
             user = userQueryService.selectByEmail(account);
@@ -79,6 +83,7 @@ public class AuthService {
             throw new BizException(Code.LOGIN_FAILED);
         }
 
+        // 验证密码是否正确并生成 token
         String token;
         if (BCrypt.checkpw(password, user.getPassword())) {
             stpService.login(user.getId());
@@ -87,7 +92,15 @@ public class AuthService {
             throw new BizException(Code.LOGIN_FAILED);
         }
 
-        return token;
+        LoginVO loginVO = new LoginVO();
+        loginVO.setToken(token);
+        loginVO.setUserInfo(Converter.toUserVO(user));
+
+        return loginVO;
+    }
+
+    public void logout() {
+        stpService.logout();
     }
 
 }

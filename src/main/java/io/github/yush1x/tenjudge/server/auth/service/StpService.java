@@ -26,4 +26,8 @@ public class StpService {
     public String getTokenValue(Long id) {
         return StpUtil.getTokenValue();
     }
+
+    public void logout() {
+        StpUtil.logout();
+    }
 }

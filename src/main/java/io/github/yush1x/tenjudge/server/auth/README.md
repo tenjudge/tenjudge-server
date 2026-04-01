@@ -8,7 +8,8 @@
 - [ ] 检查用户权限集成redis
 - [ ] RequestChecker检查数据库，判断用户名等是否重复
 ### 代办
-
+- login返回用户完整信息
+- 完成controller开发
 
 ## 业务说明
 
@@ -65,5 +66,5 @@ CREATE TABLE user (
 ### 模块结构关系
 AuthService -> /service -> /persistence
 - AuthService为总入口，交给Controller或者其他业务模块调用，负责处理核心逻辑
-- service包下的类负责细分的功能模块化实现
+- service包下的其他类负责细分的功能模块化实现
 - persistence包为基础设施层，负责需要与数据库交互的底层业务逻辑，如查询与更新某个用户的某个信息。这里的方法可以在单元测试中被方便地mock掉，这也是设计这个包的初衷。

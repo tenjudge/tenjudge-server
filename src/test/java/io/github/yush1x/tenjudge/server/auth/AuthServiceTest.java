@@ -7,6 +7,7 @@ import io.github.yush1x.tenjudge.server.auth.entity.User;
 import io.github.yush1x.tenjudge.server.auth.persistence.UserQueryService;
 import io.github.yush1x.tenjudge.server.auth.persistence.UserUpdateService;
 import io.github.yush1x.tenjudge.server.auth.service.AuthChecker;
+import io.github.yush1x.tenjudge.server.auth.service.AuthService;
 import io.github.yush1x.tenjudge.server.auth.service.RequestChecker;
 import io.github.yush1x.tenjudge.server.auth.service.StpService;
 import io.github.yush1x.tenjudge.server.common.Code;
@@ -74,7 +75,7 @@ public class AuthServiceTest {
         String rawPassword = request.getPassword();
         when(userUpdateService.insert(any(RegisterRequestDTO.class))).thenReturn(5L);
 
-        Long userId = authService.register(request);
+        Long userId = authService.register(request).getId();
 
         assertEquals(5L, userId);
         verify(requestChecker).checkRegisterRequest(request);
@@ -94,7 +95,7 @@ public class AuthServiceTest {
         when(authChecker.checkAdmin()).thenReturn(1L);
         when(userUpdateService.insert(any(RegisterRequestDTO.class))).thenReturn(9L);
 
-        Long userId = authService.register(request);
+        Long userId = authService.register(request).getId();
 
         assertEquals(9L, userId);
         verify(authChecker).checkAdmin();
@@ -177,7 +178,7 @@ public class AuthServiceTest {
         when(userQueryService.selectByUsername("test_user")).thenReturn(user);
         when(stpService.getTokenValue(7L)).thenReturn("token_abc");
 
-        String token = authService.login(request);
+        String token = authService.login(request).getToken();
 
         assertEquals("token_abc", token);
         verify(stpService).login(7L);
@@ -194,7 +195,7 @@ public class AuthServiceTest {
         when(userQueryService.selectByEmail("test@example.com")).thenReturn(user);
         when(stpService.getTokenValue(8L)).thenReturn("token_email");
 
-        String token = authService.login(request);
+        String token = authService.login(request).getToken();
 
         assertEquals("token_email", token);
         verify(stpService).login(8L);
