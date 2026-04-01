@@ -12,8 +12,10 @@ public enum Code {
     PASSWORD_INVALID(10004, "password is invalid"),
     EMAIL_INVALID(10005, "email is invalid"),
     ROLE_INVALID(10006, "role is invalid"),
+    REGISTER_FAILED(10007, "register failed"),
+    LOGIN_FAILED(10008, "login failed"),
 
-    ERROR(1, "error");
+    SERVER_ERROR(1, "error");
 
     public final int code;
     public final String message;

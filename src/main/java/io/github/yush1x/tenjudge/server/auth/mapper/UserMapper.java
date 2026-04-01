@@ -1,9 +1,9 @@
 package io.github.yush1x.tenjudge.server.auth.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import io.github.yush1x.tenjudge.server.auth.entity.Users;
+import io.github.yush1x.tenjudge.server.auth.entity.User;
 import org.apache.ibatis.annotations.Mapper;
 
 @Mapper
-public interface UsersMapper extends BaseMapper<Users> {
+public interface UserMapper extends BaseMapper<User> {
 }

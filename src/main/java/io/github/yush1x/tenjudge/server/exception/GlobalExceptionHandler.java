@@ -12,7 +12,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler
     public Result<Void> handleException(Exception e) {
         log.error("系统异常", e);
-        return Result.error(Code.ERROR);
+        return Result.error(Code.SERVER_ERROR);
     }
 
     @ExceptionHandler

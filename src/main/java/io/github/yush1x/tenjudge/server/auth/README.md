@@ -34,7 +34,7 @@
 - [ ] 校验用户名，密码，邮箱等合法性
 - [x] 鉴权（是否登录/管理员/超级管理员）
 ## 数据库
-`users` 表：
+`user` 表：
 ```
 id 用户ID，自增主键
 username 用户名，唯一，索引
@@ -47,7 +47,7 @@ email 电子邮件地址，唯一，索引
 bio 个人简介
 solved_count 已解决题目数量
 
-CREATE TABLE users (
+CREATE TABLE user (
     id BIGSERIAL PRIMARY KEY,
     username VARCHAR(255) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,

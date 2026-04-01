@@ -1,6 +1,6 @@
 package io.github.yush1x.tenjudge.server.auth.service;
 
-import io.github.yush1x.tenjudge.server.auth.persistence.UsersQueryService;
+import io.github.yush1x.tenjudge.server.auth.persistence.UserQueryService;
 import io.github.yush1x.tenjudge.server.common.Code;
 import io.github.yush1x.tenjudge.server.exception.BizException;
 import org.junit.jupiter.api.Test;
@@ -20,7 +20,7 @@ import static org.mockito.Mockito.when;
 public class AuthCheckerTest {
 
     @Mock
-    private UsersQueryService usersQueryService;
+    private UserQueryService userQueryService;
 
     @Mock
     private StpService stpService;
@@ -58,7 +58,7 @@ public class AuthCheckerTest {
     public void checkAdmin_notAdmin_throwException() {
         when(stpService.isLogin()).thenReturn(true);
         when(stpService.getLoginIdAsLong()).thenReturn(123L);
-        when(usersQueryService.getRole(123L)).thenReturn("user");
+        when(userQueryService.getRole(123L)).thenReturn("user");
 
         BizException ex = assertThrows(BizException.class, () -> authChecker.checkAdmin());
         assertEquals(Code.FORBIDDEN, ex.getCode());
@@ -69,7 +69,7 @@ public class AuthCheckerTest {
     public void checkAdmin_admin_returnId() {
         when(stpService.isLogin()).thenReturn(true);
         when(stpService.getLoginIdAsLong()).thenReturn(123L);
-        when(usersQueryService.getRole(123L)).thenReturn("admin");
+        when(userQueryService.getRole(123L)).thenReturn("admin");
 
         Long id = authChecker.checkAdmin();
         assertEquals(123L, id);
@@ -88,7 +88,7 @@ public class AuthCheckerTest {
     public void checkSuperAdmin_notSuperAdmin_throwException() {
         when(stpService.isLogin()).thenReturn(true);
         when(stpService.getLoginIdAsLong()).thenReturn(123L);
-        when(usersQueryService.getRole(123L)).thenReturn("admin");
+        when(userQueryService.getRole(123L)).thenReturn("admin");
 
         BizException ex = assertThrows(BizException.class, () -> authChecker.checkSuperAdmin());
         assertEquals(Code.FORBIDDEN, ex.getCode());
@@ -99,7 +99,7 @@ public class AuthCheckerTest {
     public void checkSuperAdmin_superAdmin_returnId() {
         when(stpService.isLogin()).thenReturn(true);
         when(stpService.getLoginIdAsLong()).thenReturn(123L);
-        when(usersQueryService.getRole(123L)).thenReturn("super_admin");
+        when(userQueryService.getRole(123L)).thenReturn("super_admin");
 
         Long id = authChecker.checkSuperAdmin();
         assertEquals(123L, id);

@@ -19,5 +19,11 @@ public class StpService {
         return StpUtil.getLoginIdAsLong();
     }
 
+    public void login(Long id) {
+        StpUtil.login(id);
+    }
 
+    public String getTokenValue(Long id) {
+        return StpUtil.getTokenValue();
+    }
 }
