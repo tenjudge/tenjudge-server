@@ -37,7 +37,7 @@ public class AuthChecker {
         }
         Long userId = stpService.getLoginIdAsLong();
         String role = userQueryService.getRole(userId);
-        if (!"admin".equals(role)) {
+        if (!"admin".equals(role) && !"super_admin".equals(role)) {
             throw new BizException(Code.FORBIDDEN);
         }
         return userId;

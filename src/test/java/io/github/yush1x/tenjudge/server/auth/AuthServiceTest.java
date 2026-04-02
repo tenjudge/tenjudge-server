@@ -176,13 +176,13 @@ public class AuthServiceTest {
         user.setId(7L);
         user.setPassword(BCrypt.hashpw("plainPassword123", BCrypt.gensalt()));
         when(userQueryService.selectByUsername("test_user")).thenReturn(user);
-        when(stpService.getTokenValue(7L)).thenReturn("token_abc");
+        when(stpService.getTokenValue()).thenReturn("token_abc");
 
-        String token = authService.login(request).getToken();
+        String token = authService.login(request).getTokenValue();
 
         assertEquals("token_abc", token);
         verify(stpService).login(7L);
-        verify(stpService).getTokenValue(7L);
+        verify(stpService).getTokenValue();
     }
 
     @Test
@@ -193,13 +193,13 @@ public class AuthServiceTest {
         user.setId(8L);
         user.setPassword(BCrypt.hashpw("plainPassword123", BCrypt.gensalt()));
         when(userQueryService.selectByEmail("test@example.com")).thenReturn(user);
-        when(stpService.getTokenValue(8L)).thenReturn("token_email");
+        when(stpService.getTokenValue()).thenReturn("token_email");
 
-        String token = authService.login(request).getToken();
+        String token = authService.login(request).getTokenValue();
 
         assertEquals("token_email", token);
         verify(stpService).login(8L);
-        verify(stpService).getTokenValue(8L);
+        verify(stpService).getTokenValue();
     }
 
 }

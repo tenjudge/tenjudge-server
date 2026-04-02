@@ -24,24 +24,21 @@ public class UserQueryService {
     // 获取用户信息（通过用户ID）
     public User selectById(Long userId) {
         LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.select(User::getPassword)
-                .eq(User::getId, userId);
+        queryWrapper.eq(User::getId, userId);
         return userMapper.selectOne(queryWrapper);
     }
 
     // 获取用户信息（通过用户名）
     public User selectByUsername(String username) {
         LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.select(User::getPassword)
-                .eq(User::getUsername, username);
+        queryWrapper.eq(User::getUsername, username);
         return userMapper.selectOne(queryWrapper);
     }
 
     // 获取用户信息（通过邮箱）
     public User selectByEmail(String email) {
         LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.select(User::getPassword)
-                .eq(User::getEmail, email);
+        queryWrapper.eq(User::getEmail, email);
         return userMapper.selectOne(queryWrapper);
     }
 }

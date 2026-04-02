@@ -23,8 +23,12 @@ public class StpService {
         StpUtil.login(id);
     }
 
-    public String getTokenValue(Long id) {
+    public String getTokenValue() {
         return StpUtil.getTokenValue();
+    }
+
+    public String getTokenName() {
+        return StpUtil.getTokenName();
     }
 
     public void logout() {

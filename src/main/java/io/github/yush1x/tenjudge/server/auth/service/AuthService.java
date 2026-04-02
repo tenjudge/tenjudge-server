@@ -46,7 +46,7 @@ public class AuthService {
 
         // 检查管理员注册权限
         if ("admin".equals(registerRequestDTO.getRole()) || "super_admin".equals(registerRequestDTO.getRole())) {
-            authChecker.checkAdmin();
+            authChecker.checkSuperAdmin();
         }
 
         // 密码加密
@@ -83,17 +83,18 @@ public class AuthService {
             throw new BizException(Code.LOGIN_FAILED);
         }
 
-        // 验证密码是否正确并生成 token
-        String token;
+        System.out.println(user);
+
+        // 验证密码是否正确
         if (BCrypt.checkpw(password, user.getPassword())) {
             stpService.login(user.getId());
-            token = stpService.getTokenValue(user.getId());
         } else  {
             throw new BizException(Code.LOGIN_FAILED);
         }
 
         LoginVO loginVO = new LoginVO();
-        loginVO.setToken(token);
+        loginVO.setTokenName(stpService.getTokenName());
+        loginVO.setTokenValue(stpService.getTokenValue());
         loginVO.setUserInfo(Converter.toUserVO(user));
 
         return loginVO;
