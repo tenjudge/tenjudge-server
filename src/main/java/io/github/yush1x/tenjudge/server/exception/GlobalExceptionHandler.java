@@ -18,6 +18,6 @@ public class GlobalExceptionHandler {
     @ExceptionHandler
     public Result<Void> handleBizException(BizException e) {
         log.info("业务异常", e);
-        return Result.error(e.getCode());
+        return Result.error(e.getCode(), e.getMessage());
     }
 }

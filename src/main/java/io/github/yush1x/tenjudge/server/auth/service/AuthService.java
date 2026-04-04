@@ -23,7 +23,7 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class AuthService {
     private final AuthChecker authChecker;
-    private final RequestChecker requestChecker;
+    private final AuthRequestChecker authRequestChecker;
     private final UserUpdateService userUpdateService;
     private final UserQueryService userQueryService;
     private final StpService stpService;
@@ -40,9 +40,13 @@ public class AuthService {
         return authChecker.checkSuperAdmin();
     }
 
+    public Long getLoginId() {
+        return stpService.getLoginIdAsLong();
+    }
+
     // 注册用户，返回id
     public RegisterVO register(RegisterRequestDTO  registerRequestDTO) {
-        requestChecker.checkRegisterRequest(registerRequestDTO);
+        authRequestChecker.checkRegisterRequest(registerRequestDTO);
 
         // 检查管理员注册权限
         if ("admin".equals(registerRequestDTO.getRole()) || "super_admin".equals(registerRequestDTO.getRole())) {
@@ -82,8 +86,6 @@ public class AuthService {
         if (user == null) { // 找不到用户的情况
             throw new BizException(Code.LOGIN_FAILED);
         }
-
-        System.out.println(user);
 
         // 验证密码是否正确
         if (BCrypt.checkpw(password, user.getPassword())) {

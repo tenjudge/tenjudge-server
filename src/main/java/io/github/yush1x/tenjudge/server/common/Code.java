@@ -15,7 +15,14 @@ public enum Code {
     REGISTER_FAILED(10007, "register failed"),
     LOGIN_FAILED(10008, "login failed"),
 
-    SERVER_ERROR(1, "error");
+
+    UNZIP_FAILED(20001, "unzip failed"),
+    CONFIG_FILE_INVALID(20002, "config file invalid"),
+    FILE_MISSING(20003, "file missing"),
+    READ_FILE_FAILED(20004, "read file failed"),
+    SAVE_FILE_FAILED(20005, "save file failed"),
+
+    SERVER_ERROR(1, "server error");
 
     public final int code;
     public final String message;

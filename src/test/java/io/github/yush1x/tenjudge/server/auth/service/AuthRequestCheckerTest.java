@@ -14,9 +14,9 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-class RequestCheckerTest {
+class AuthRequestCheckerTest {
 
-    private final RequestChecker requestChecker = new RequestChecker();
+    private final AuthRequestChecker authRequestChecker = new AuthRequestChecker();
 
     private RegisterRequestDTO validRequest() {
         RegisterRequestDTO dto = new RegisterRequestDTO();
@@ -51,11 +51,11 @@ class RequestCheckerTest {
         mutator.accept(dto);
 
         if (expectedCode == null) {
-            assertDoesNotThrow(() -> requestChecker.checkRegisterRequest(dto));
+            assertDoesNotThrow(() -> authRequestChecker.checkRegisterRequest(dto));
             return;
         }
 
-        BizException ex = assertThrows(BizException.class, () -> requestChecker.checkRegisterRequest(dto));
+        BizException ex = assertThrows(BizException.class, () -> authRequestChecker.checkRegisterRequest(dto));
         assertEquals(expectedCode, ex.getCode());
     }
 }

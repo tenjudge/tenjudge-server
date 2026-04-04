@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service;
  */
 
 @Service
-public class RequestChecker {
+public class AuthRequestChecker {
 
     public void checkRegisterRequest(RegisterRequestDTO registerRequestDTO) {
         if (registerRequestDTO.getUsername() == null || !Validator.isUsernameValid(registerRequestDTO.getUsername())) {

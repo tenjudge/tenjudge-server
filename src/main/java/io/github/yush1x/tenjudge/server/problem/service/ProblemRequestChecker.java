@@ -1,0 +1,78 @@
+package io.github.yush1x.tenjudge.server.problem.service;
+
+import io.github.yush1x.tenjudge.server.common.Code;
+import io.github.yush1x.tenjudge.server.common.Tag;
+import io.github.yush1x.tenjudge.server.exception.BizException;
+import io.github.yush1x.tenjudge.server.problem.dto.ProblemConfig;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+@Service
+@RequiredArgsConstructor
+public class ProblemRequestChecker {
+
+    private final FileService fileService;
+
+    public ProblemConfig checkProblemFiles(Path dir) {
+        // 读取 config.yaml 文件，并解析为 ProblemConfig 对象
+        System.out.println("Checking problem files in " + dir);
+        Path configPath = dir.resolve("config.yaml");
+        if (!Files.isRegularFile(configPath)) {
+            throw new BizException(Code.FILE_MISSING, "config file missing");
+        }
+
+        ProblemConfig problemConfig;
+        try {
+            problemConfig = fileService.parseProblemConfig(configPath);
+        } catch (Exception e) {
+            throw new BizException(Code.CONFIG_FILE_INVALID);
+        }
+
+        // 检查 config 必要参数完整
+        if (problemConfig.getName() == null || problemConfig.getTime_limit() == null ||
+                problemConfig.getMemory_limit() == null || problemConfig.getJudge_type() == null) {
+            throw new BizException(Code.CONFIG_FILE_INVALID, "Some configs missing");
+        }
+
+        // 检查已有参数合法性
+        if (!"normal".equals(problemConfig.getJudge_type()) && !"special".equals(problemConfig.getJudge_type())) {
+            throw new BizException(Code.CONFIG_FILE_INVALID, "Judge type not supported");
+        }
+        if (problemConfig.getDifficulty() != null && (problemConfig.getDifficulty() < 1 || problemConfig.getDifficulty() > 3500)) {
+            throw new BizException(Code.CONFIG_FILE_INVALID, "Difficulty not supported");
+        }
+        if (problemConfig.getName().length() > 50) {
+            throw new BizException(Code.CONFIG_FILE_INVALID, "Name too long");
+        }
+        if (problemConfig.getTime_limit() <= 0.0 || problemConfig.getMemory_limit() <= 0.0) {
+            throw new BizException(Code.CONFIG_FILE_INVALID, "Time or Memory Limit not supported");
+        }
+        if (problemConfig.getTags() != null) {
+            for (String tag : problemConfig.getTags()) {
+                if (!Tag.contains(tag)) {
+                    throw new BizException(Code.CONFIG_FILE_INVALID, "Tag not supported");
+                }
+            }
+        }
+
+        // 校验文件完整性
+        if (!Files.isRegularFile(dir.resolve("statement.md"))) {
+            throw new BizException(Code.FILE_MISSING, "statement file missing");
+        }
+        if (!Files.isRegularFile(dir.resolve("std.cpp"))) {
+            throw new BizException(Code.FILE_MISSING, "std file missing");
+        }
+        if ("special".equals(problemConfig.getJudge_type()) && !Files.isRegularFile(dir.resolve("checker.cpp"))) {
+            throw new BizException(Code.FILE_MISSING, "checker file missing");
+        }
+        if (!Files.isRegularFile(dir.resolve("input").resolve("1.in"))) {
+            throw new BizException(Code.FILE_MISSING, "input file missing");
+        }
+
+        return problemConfig;
+    }
+
+}

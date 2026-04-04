@@ -13,6 +13,7 @@ public class UserUpdateService {
 
     private final UserMapper userMapper;
 
+    // 插入user，返回id
     @Transactional
     public Long insert(RegisterRequestDTO registerRequestDTO) {
         User user = new User();

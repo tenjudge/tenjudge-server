@@ -34,4 +34,5 @@ public class StpService {
     public void logout() {
         StpUtil.logout();
     }
+
 }
