@@ -1,11 +1,5 @@
 spring:
 
-  # File
-  servlet:
-    multipart:
-      max-file-size: 100MB
-      max-request-size: 100MB
-
   # PostgreSQL
   datasource:
     driver-class-name: org.postgresql.Driver
@@ -33,12 +27,9 @@ mybatis-plus:
   mapper-locations: classpath*:/mappers/**/*.xml
 
 sa-token:
-  # token 名称（同时也是 cookie 名称）
-  token-name: tenjudge-token
-  # token 有效期（单位：秒） 默认30天，-1 代表永久有效
-  timeout: 600
-  # token 最低活跃频率（单位：秒），如果 token 超过此时间没有访问系统就会被冻结，默认-1 代表不限制，永不冻结
-  active-timeout: -1
+  token-name: tenjudge-token # token 名称（同时也是 cookie 名称）
+  timeout: 600 # token 有效期（单位：秒） 默认30天，-1 代表永久有效
+  active-timeout: -1 # token 最低活跃频率（单位：秒），如果 token 超过此时间没有访问系统就会被冻结，默认-1 代表不限制，永不冻结
 
 # App
 app:

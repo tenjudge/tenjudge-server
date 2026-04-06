@@ -4,10 +4,10 @@ import io.github.yush1x.tenjudge.server.common.Code;
 import io.github.yush1x.tenjudge.server.common.Tag;
 import io.github.yush1x.tenjudge.server.exception.BizException;
 import io.github.yush1x.tenjudge.server.problem.dto.ProblemConfig;
+import io.github.yush1x.tenjudge.server.problem.storage.FileService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 
 @Service
@@ -18,9 +18,8 @@ public class ProblemRequestChecker {
 
     public ProblemConfig checkProblemFiles(Path dir) {
         // 读取 config.yaml 文件，并解析为 ProblemConfig 对象
-        System.out.println("Checking problem files in " + dir);
         Path configPath = dir.resolve("config.yaml");
-        if (!Files.isRegularFile(configPath)) {
+        if (!fileService.isRegularFile(configPath)) {
             throw new BizException(Code.FILE_MISSING, "config file missing");
         }
 
@@ -59,16 +58,16 @@ public class ProblemRequestChecker {
         }
 
         // 校验文件完整性
-        if (!Files.isRegularFile(dir.resolve("statement.md"))) {
+        if (!fileService.isRegularFile(dir.resolve("statement.md"))) {
             throw new BizException(Code.FILE_MISSING, "statement file missing");
         }
-        if (!Files.isRegularFile(dir.resolve("std.cpp"))) {
+        if (!fileService.isRegularFile(dir.resolve("std.cpp"))) {
             throw new BizException(Code.FILE_MISSING, "std file missing");
         }
-        if ("special".equals(problemConfig.getJudge_type()) && !Files.isRegularFile(dir.resolve("checker.cpp"))) {
+        if ("special".equals(problemConfig.getJudge_type()) && !fileService.isRegularFile(dir.resolve("checker.cpp"))) {
             throw new BizException(Code.FILE_MISSING, "checker file missing");
         }
-        if (!Files.isRegularFile(dir.resolve("input").resolve("1.in"))) {
+        if (!fileService.isRegularFile(dir.resolve("input").resolve("1.in"))) {
             throw new BizException(Code.FILE_MISSING, "input file missing");
         }
 

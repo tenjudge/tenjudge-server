@@ -5,9 +5,9 @@ import io.github.yush1x.tenjudge.server.common.Code;
 import io.github.yush1x.tenjudge.server.exception.BizException;
 import io.github.yush1x.tenjudge.server.problem.dto.ProblemConfig;
 import io.github.yush1x.tenjudge.server.problem.entity.Problem;
-import io.github.yush1x.tenjudge.server.problem.mapper.ProblemMapper;
 import io.github.yush1x.tenjudge.server.problem.persistence.ProblemTagUpdateService;
 import io.github.yush1x.tenjudge.server.problem.persistence.ProblemUpdateService;
+import io.github.yush1x.tenjudge.server.problem.storage.FileService;
 import io.github.yush1x.tenjudge.server.problem.vo.CreateProblemVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,7 +17,6 @@ import org.springframework.util.FileSystemUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.UUID;
 
@@ -69,7 +68,7 @@ public class ProblemService {
             problem.setName(problemConfig.getName());
             try {
                 problem.setStatement(fileService.readTextFile(dir.resolve("statement.md")));
-                if (Files.isRegularFile(dir.resolve("solution.md"))) { // solution 可能不存在
+                if (fileService.isRegularFile(dir.resolve("solution.md"))) { // solution 可能不存在
                     problem.setSolution(fileService.readTextFile(dir.resolve("solution.md")));
                 }
             } catch (Exception e) {
@@ -91,7 +90,7 @@ public class ProblemService {
                     fileService.moveFile(dir.resolve("checker.cpp"), destDir.resolve("checker.cpp"));
                 }
                 int idx = 1;
-                while (Files.isRegularFile(dir.resolve("input").resolve(idx + ".in"))) {
+                while (fileService.isRegularFile(dir.resolve("input").resolve(idx + ".in"))) {
                     fileService.moveFile(dir.resolve("input").resolve(idx + ".in"),
                             destDir.resolve("input").resolve(idx + ".in"));
                     idx++;
@@ -100,7 +99,7 @@ public class ProblemService {
                 throw new BizException(Code.SAVE_FILE_FAILED);
             }
         } finally { // 清空当前temp文件夹
-            FileSystemUtils.deleteRecursively(new File(dir.toString()));
+            fileService.deleteDirectory(dir);
         }
 
         return createProblemVO;
