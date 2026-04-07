@@ -16,6 +16,11 @@ public class ProblemRequestChecker {
 
     private final FileService fileService;
 
+    /**
+     * 检查管理员上传的所有题目相关文件是否合法
+     * @param dir 解压后的题目信息文件夹路径
+     * @return 解析后的 ProblemConfig 对象
+     */
     public ProblemConfig checkProblemFiles(Path dir) {
         // 读取 config.yaml 文件，并解析为 ProblemConfig 对象
         Path configPath = dir.resolve("config.yaml");

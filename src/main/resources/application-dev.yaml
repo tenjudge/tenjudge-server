@@ -3,14 +3,14 @@ spring:
   # PostgreSQL
   datasource:
     driver-class-name: org.postgresql.Driver
-    url: jdbc:postgresql://localhost:5432/tenjudge
-    username: postgres
-    password: "051223"
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
 
   # Redis
   data:
     redis:
-      host: localhost
+      host: ${REDIS_HOST}
       port: 6379
       database: 0
       lettuce:

@@ -13,10 +13,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.FileSystemUtils;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
 import java.nio.file.Path;
 import java.util.UUID;
 
@@ -36,7 +34,11 @@ public class ProblemService {
     @Value("${app.file-storage.temp}")
     private String tempDir;
 
-    // 新建题目
+    /**
+     * 新建题目
+     * @param file 管理员上传的 zip 文件，包含题目的所有信息和数据
+     * @return 返回给前端的对象，包含新建题目的 id 和 name
+     */
     @Transactional(rollbackFor = Exception.class)
     public CreateProblemVO create(MultipartFile file) {
         authService.checkAdmin();
