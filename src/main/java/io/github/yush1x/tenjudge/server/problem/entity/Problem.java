@@ -20,4 +20,5 @@ public class Problem {
     private String statement;
     private String solution;
     private Integer difficulty;
+    private String problem_key;
 }
