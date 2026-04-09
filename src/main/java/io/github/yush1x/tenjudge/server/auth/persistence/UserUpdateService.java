@@ -14,7 +14,7 @@ public class UserUpdateService {
     private final UserMapper userMapper;
 
     // 插入user，返回id
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Long insert(RegisterRequestDTO registerRequestDTO) {
         User user = new User();
         user.setUsername(registerRequestDTO.getUsername());
