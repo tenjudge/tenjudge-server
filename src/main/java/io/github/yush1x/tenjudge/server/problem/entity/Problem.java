@@ -1,8 +1,6 @@
 package io.github.yush1x.tenjudge.server.problem.entity;
 
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
 
 @Data
@@ -18,6 +16,9 @@ public class Problem {
     private Double memoryLimit;
     private String name;
     private String statement;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String solution;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private Integer difficulty;
+    private String problemKey;
 }

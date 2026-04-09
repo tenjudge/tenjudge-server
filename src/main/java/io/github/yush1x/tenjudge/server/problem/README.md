@@ -8,7 +8,6 @@
 ### 待升级部分
 - 题面md文件支持图片元素
 ### 待办
-- tag数据库的更新
 - 更新题面，不是增量更新，同时move前删除目录中原来的所有文件, tag数据库需要先清空
 - 题目导入后发送异步验证请求
 ## 业务说明
@@ -44,16 +43,19 @@ tags:
 - 题目配置文件严格要求后缀为yaml（不接受yml后缀），剩余所有文件也要求命名完全一致
 
 ### 题目数据存储
-题目测试数据和代码存储通过本地文件系统存储
+使用MinIO对象存储，存储测试点与代码，其存储结构（对象名）如下：
 ```
-/data/problem/<problem_id>/
+/problem/<problem_key>/
     input/
+        1
+        2
     answer/
     std.cpp
     checker.cpp
     checker
 ```
-其中answer由后续题目验证是生成，在非special judge的情况的情况下加速测评过程
+- problem_key 为uuid，同时作为指针存储至数据库，指向对应题目
+- answer和checker由后续题目验证是生成，加速测评过程
 
 ### 题目验证
 - 验证内容为题目数据是否完整，std是否可以通过checker
@@ -77,6 +79,7 @@ name 题目名称
 statement 题面
 solution 题解
 difficulty 难度，以cf分数形式
+problem_key MinIO存储中题目对应key（uuid）
 
 CREATE TABLE problem (
     id BIGSERIAL PRIMARY KEY,
@@ -89,7 +92,8 @@ CREATE TABLE problem (
     name VARCHAR(255) NOT NULL,
     statement TEXT NOT NULL,
     solution TEXT,
-    difficulty INTEGER
+    difficulty INTEGER,
+    problem_key VARCHAR(255) NOT NULL
 );
 ```
 
@@ -105,18 +109,20 @@ CREATE TABLE problem_tag (
 
 ## 业务实现
 
-### 新建/更新题目数据
-- 使用 ZipInputStream 解压zip文件至 `/temp/server/problem/<uuid>/` 目录
+### 新建题目
+- 使用 ZipInputStream 解压zip文件至 `/temp/server/problem/<uuid>/` 临时目录
 - 校验 yaml 文件，以及代码文件测试点是否缺失
 - 将题面、题解、配置等数据存储至数据库
-- 将测试数据和代码文件移动至 `/data/problem/<problem_id>/` 目录
+- 将测试数据和代码文件保存至MinIO，对象名前缀统一为 `problem/<problem_key>/` （注意，对象名开头无 `/`）
+- 删除临时目录
 - 发送异步验证请求，验证题目数据的合法性
 
-## 并发问题
-- 题面更新的并发数据一致性问题：（不包含发送异步验证请求部分）（也可以使用版本号方案解决，但考虑到需要大量重构，且会占用大量本地存储空间，故暂不考虑）
-  - 使用分布式锁（异步验证请求前释放），兜底解决大部分并发问题
-  - 原子替换 + 事务管理：（保证data和temp挂载在同一文件系统中）
-    - 先将历史data目录中对应数据通过uuid改名
-    - 选择必要的temp目录中的文件逐个移动到data/<uuid>目录中，直接改名为problem_id目录
-    - catch：上述任一步骤失败需将data目录中的历史数据恢复（删除可能已经新建的<problem_id>目录后把uuid改回原名），catch后不要吞异常，防止数据库回滚失败
-    - finally：删除temp中的一个uuid目录，删除data中两个uuid目录（一个是新建的，一个是原来的），删除必须幂等，可能目录并不存在
+### 更新题目
+#### 对象存储回滚
+若更新时发生异常，需将对象存储中的数据进行回滚，使用**临时对象 + 数据库指针切换**的方式实现：
+- 将更新后的数据先保存至一个新的uuid目录下
+- 所有信息更新成功后，切换数据库中指向对应题目的problem_key为新uuid，同时删除原problem_key指向的对象存储数据
+- 发生异常时，删除新uuid目录下的对象存储数据，保持原problem_key不变，指向原数据
+
+#### 锁
+对题目更新操作使用分布式锁，防止并发更新导致数据不一致问题（异步验证请求不在锁的生命周期内）

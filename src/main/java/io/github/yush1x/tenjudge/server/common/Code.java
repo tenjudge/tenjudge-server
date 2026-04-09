@@ -15,12 +15,13 @@ public enum Code {
     REGISTER_FAILED(10007, "register failed"),
     LOGIN_FAILED(10008, "login failed"),
 
-
     UNZIP_FAILED(20001, "unzip failed"),
     CONFIG_FILE_INVALID(20002, "config file invalid"),
     FILE_MISSING(20003, "file missing"),
     READ_FILE_FAILED(20004, "read file failed"),
     SAVE_FILE_FAILED(20005, "save file failed"),
+    TOO_MANY_REQUESTS(20006, "too many requests"),
+    PROBLEM_NOT_FOUND(20007, "problem not found"),
 
     SERVER_ERROR(1, "server error");
 
