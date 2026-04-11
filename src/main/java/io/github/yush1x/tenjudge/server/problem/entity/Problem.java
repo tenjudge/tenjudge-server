@@ -21,4 +21,5 @@ public class Problem {
     @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private Integer difficulty;
     private String problemKey;
+    private Integer version;
 }

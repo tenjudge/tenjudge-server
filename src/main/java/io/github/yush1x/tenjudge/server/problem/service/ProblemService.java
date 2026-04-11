@@ -39,9 +39,6 @@ public class ProblemService {
     private final RedissonClient redissonClient;
     private final ProblemQueryService problemQueryService;
 
-    @Value("${app.file-storage.data}")
-    private String dataDir;
-
     @Value("${app.file-storage.temp}")
     private String tempDir;
 
@@ -57,8 +54,8 @@ public class ProblemService {
         String temp_uuid = UUID.randomUUID().toString();
         String problem_key = UUID.randomUUID().toString();
 
-        // 解压至 /temp/server/problem/<uuid>/
-        Path dir = Path.of(tempDir, "server", "problem", temp_uuid);
+        // 解压至 /temp/problem/<uuid>/
+        Path dir = Path.of(tempDir, "problem", temp_uuid);
         try {
             new FileService().unzip(file, dir);
         } catch (Exception e) {
@@ -91,6 +88,7 @@ public class ProblemService {
             }
             problem.setDifficulty(problemConfig.getDifficulty());
             problem.setProblemKey(problem_key);
+            problem.setVersion(1);
 
             Long problemId = problemUpdateService.insert(problem);  // 存入 problem
             if (problemConfig.getTags() != null && !problemConfig.getTags().isEmpty()) {
@@ -103,7 +101,6 @@ public class ProblemService {
 
             // 将代码和测试数据上传至MinIO，路径为 problem/{problem_key}/...
             String keyPrefix = "problem/" + problem_key + "/";
-            Path destDir = Path.of(dataDir, "problem", problemId.toString());
             try { // std.cpp
                 minioService.upload(dir.resolve("std.cpp"), keyPrefix + "std.cpp");
             } catch (Exception e) {
@@ -155,8 +152,8 @@ public class ProblemService {
             String new_problem_key = UUID.randomUUID().toString();
             String old_problem_key = old_problem.getProblemKey();
 
-            // 解压至 /temp/server/problem/<uuid>/
-            Path dir = Path.of(tempDir, "server", "problem", temp_uuid);
+            // 解压至 /temp/problem/<uuid>/
+            Path dir = Path.of(tempDir, "problem", temp_uuid);
             try {
                 new FileService().unzip(file, dir);
             } catch (Exception e) {
@@ -187,6 +184,7 @@ public class ProblemService {
                 }
                 problem.setDifficulty(problemConfig.getDifficulty());
                 problem.setProblemKey(new_problem_key); // 这里可以先覆盖，如果失败会回滚为原版本
+                problem.setVersion(old_problem.getVersion() + 1);
 
                 problemUpdateService.update(problemId, problem);  // 更新 problem
                 problemTagUpdateService.batchDelete(problemId); // 删除旧的 problem_tag
@@ -196,7 +194,7 @@ public class ProblemService {
 
                 // 将代码和测试数据上传至MinIO，路径为 problem/{problem_key}/...
                 String keyPrefix = "problem/" + new_problem_key + "/";
-                Path destDir = Path.of(dataDir, "problem", problemId.toString());
+
                 try { // std.cpp
                     minioService.upload(dir.resolve("std.cpp"), keyPrefix + "std.cpp");
                 } catch (Exception e) {

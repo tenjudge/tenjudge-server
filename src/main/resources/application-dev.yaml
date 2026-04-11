@@ -3,14 +3,14 @@ spring:
   # PostgreSQL
   datasource:
     driver-class-name: org.postgresql.Driver
-    url: ${DB_URL}
+    url: jdbc:postgresql://127.0.0.1:5432/tenjudge
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
 
   # Redis
   data:
     redis:
-      host: ${REDIS_HOST}
+      host: 127.0.0.1
       port: 6379
       database: 0
       lettuce:
@@ -32,7 +32,7 @@ sa-token:
   active-timeout: -1 # token 最低活跃频率（单位：秒），如果 token 超过此时间没有访问系统就会被冻结，默认-1 代表不限制，永不冻结
 
 minio:
-  endpoint: ${MINIO_ENDPOINT}
+  endpoint: http://127.0.0.1:9000
   access-key: ${MINIO_ACCESS_KEY}
   secret-key: ${MINIO_SECRET_KEY}
   bucket-name: tenjudge
@@ -40,5 +40,4 @@ minio:
 # App
 app:
   file-storage:
-    data: "/Users/shaun/Workspace/Data/TenJudge/data"
     temp: "/Users/shaun/Workspace/Data/TenJudge/temp"

@@ -1,15 +1,14 @@
 # Problem 题目模块
 
 ## 开发进度
-- [x] 实体类构建
 - [x] 新建导入题目
-- [ ] 更新题目数据
+- [x] 更新题目数据
 
 ### 待升级部分
 - 题面md文件支持图片元素
 ### 待办
-- 更新题面，不是增量更新，同时move前删除目录中原来的所有文件, tag数据库需要先清空
 - 题目导入后发送异步验证请求
+
 ## 业务说明
 ### 新建/修改题目
 直接通过上传zip文件的形式新建题目，并直接执行题目检测。
@@ -80,6 +79,7 @@ statement 题面
 solution 题解
 difficulty 难度，以cf分数形式
 problem_key MinIO存储中题目对应key（uuid）
+version 版本号，每次更新题面时递增
 
 CREATE TABLE problem (
     id BIGSERIAL PRIMARY KEY,
@@ -93,7 +93,8 @@ CREATE TABLE problem (
     statement TEXT NOT NULL,
     solution TEXT,
     difficulty INTEGER,
-    problem_key VARCHAR(255) NOT NULL
+    problem_key VARCHAR(255) NOT NULL,
+    version INTEGER NOT NULL,
 );
 ```
 
@@ -110,7 +111,7 @@ CREATE TABLE problem_tag (
 ## 业务实现
 
 ### 新建题目
-- 使用 ZipInputStream 解压zip文件至 `/temp/server/problem/<uuid>/` 临时目录
+- 使用 ZipInputStream 解压zip文件至 `/temp/problem/<uuid>/` 临时目录
 - 校验 yaml 文件，以及代码文件测试点是否缺失
 - 将题面、题解、配置等数据存储至数据库
 - 将测试数据和代码文件保存至MinIO，对象名前缀统一为 `problem/<problem_key>/` （注意，对象名开头无 `/`）
@@ -124,5 +125,8 @@ CREATE TABLE problem_tag (
 - 所有信息更新成功后，切换数据库中指向对应题目的problem_key为新uuid，同时删除原problem_key指向的对象存储数据
 - 发生异常时，删除新uuid目录下的对象存储数据，保持原problem_key不变，指向原数据
 
-#### 锁
+#### 悲观锁
 对题目更新操作使用分布式锁，防止并发更新导致数据不一致问题（异步验证请求不在锁的生命周期内）
+
+#### 版本号机制
+每次更新时，同步更新题目版本号。评测机会提前拉取题目测试点数据并缓存，每次测评时验证版本号是否过期，过期则重新拉取测试点数据。
