@@ -234,7 +234,7 @@ public class ProblemService {
                 minioService.deleteByPrefix("problem/" + old_problem_key + "/");
             } catch (Exception e) {
                 // 此时所有操作均已完成，此时仅记录日志但不抛出异常，防止数据库回滚造成与MinIO不一致
-                log.error("Failed to delete old problem data from MinIO: " + e.getMessage(), e);
+                log.error("Failed to delete old problem data from MinIO: {}", e.getMessage(), e);
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();

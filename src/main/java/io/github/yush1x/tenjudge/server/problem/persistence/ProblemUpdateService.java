@@ -1,7 +1,6 @@
 package io.github.yush1x.tenjudge.server.problem.persistence;
 
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
-import io.github.yush1x.tenjudge.server.problem.dto.ProblemUpdateRequestDTO;
 import io.github.yush1x.tenjudge.server.problem.entity.Problem;
 import io.github.yush1x.tenjudge.server.problem.mapper.ProblemMapper;
 import lombok.RequiredArgsConstructor;

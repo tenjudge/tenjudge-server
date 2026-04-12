@@ -12,8 +12,8 @@ public class Problem {
     private String visibility;
     private String status;
     private String judgeType;
-    private Double timeLimit;
-    private Double memoryLimit;
+    private Integer timeLimit;
+    private Integer memoryLimit;
     private String name;
     private String statement;
     @TableField(updateStrategy = FieldStrategy.ALWAYS)

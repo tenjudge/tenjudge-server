@@ -51,7 +51,7 @@ public class ProblemRequestChecker {
         if (problemConfig.getName().length() > 50) {
             throw new BizException(Code.CONFIG_FILE_INVALID, "Name too long");
         }
-        if (problemConfig.getTime_limit() <= 0.0 || problemConfig.getMemory_limit() <= 0.0) {
+        if (problemConfig.getTime_limit() <= 0 || problemConfig.getMemory_limit() <= 0) {
             throw new BizException(Code.CONFIG_FILE_INVALID, "Time or Memory Limit not supported");
         }
         if (problemConfig.getTags() != null) {

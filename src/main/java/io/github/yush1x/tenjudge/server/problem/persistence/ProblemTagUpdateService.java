@@ -2,14 +2,12 @@ package io.github.yush1x.tenjudge.server.problem.persistence;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import io.github.yush1x.tenjudge.server.problem.entity.ProblemTag;
-import io.github.yush1x.tenjudge.server.problem.mapper.ProblemMapper;
 import io.github.yush1x.tenjudge.server.problem.mapper.ProblemTagMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.SimpleTimeZone;
 
 @Service
 @RequiredArgsConstructor

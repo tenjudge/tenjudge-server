@@ -28,8 +28,8 @@ checker.cpp     # 判题程序（强制c++）
 config.yaml格式：
 ```yaml
 name: "Two Sum Problem"       # 题目名称，必填，50字以内
-time_limit: 1.5               # 时间限制，单位秒，支持小数，必填，大于0
-memory_limit: 256.0           # 内存限制，单位MB，支持小数，必填，大于0
+time_limit: 1500               # 时间限制，单位毫秒，整数，必填，大于0
+memory_limit: 256           # 内存限制，单位MB，整数，必填，大于0
 judge_type: "normal"          # 判题类型，可选 "normal" 或 "special"，必填
 difficulty: 1600              # 题目难度评分，[1, 3500]
 tags:
@@ -87,14 +87,14 @@ CREATE TABLE problem (
     visibility VARCHAR(32) NOT NULL,
     status VARCHAR(32) NOT NULL,
     judge_type VARCHAR(32) NOT NULL,
-    time_limit NUMERIC(10, 2) NOT NULL,
-    memory_limit NUMERIC(10, 2) NOT NULL,
+    time_limit INTEGER NOT NULL,
+    memory_limit INTEGER NOT NULL,
     name VARCHAR(255) NOT NULL,
     statement TEXT NOT NULL,
     solution TEXT,
     difficulty INTEGER,
     problem_key VARCHAR(255) NOT NULL,
-    version INTEGER NOT NULL,
+    version INTEGER NOT NULL
 );
 ```
 
@@ -103,9 +103,10 @@ CREATE TABLE problem (
 CREATE TABLE problem_tag (
     problem_id BIGINT NOT NULL,
     tag VARCHAR(64) NOT NULL,
-    PRIMARY KEY (problem_id, tag),
-    INDEX problem_tag_tag_key (tag)
+    PRIMARY KEY (problem_id, tag)
 );
+
+CREATE INDEX problem_tag_tag_key ON problem_tag(tag);
 ```
 
 ## 业务实现
