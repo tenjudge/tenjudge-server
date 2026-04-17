@@ -89,6 +89,12 @@ public class ProblemService {
             problem.setDifficulty(problemConfig.getDifficulty());
             problem.setProblemKey(problem_key);
             problem.setVersion(1);
+            for (int idx = 1; ; idx++) {
+                if (!fileService.isRegularFile(dir.resolve("input").resolve(idx + ".in"))) {
+                    problem.setTestCaseNum(idx - 1);
+                    break;
+                }
+            }
 
             Long problemId = problemUpdateService.insert(problem);  // 存入 problem
             if (problemConfig.getTags() != null && !problemConfig.getTags().isEmpty()) {
@@ -119,6 +125,7 @@ public class ProblemService {
                     minioService.upload(dir.resolve("input").resolve(idx + ".in"), keyPrefix + "input/" + idx);
                     idx++;
                 }
+                problem.setTestCaseNum(idx - 1); // 更新测试数据数量
             } catch (Exception e) {
                 throw new RuntimeException("input测试数据保存至MinIO失败", e);
             }
@@ -185,6 +192,14 @@ public class ProblemService {
                 problem.setDifficulty(problemConfig.getDifficulty());
                 problem.setProblemKey(new_problem_key); // 这里可以先覆盖，如果失败会回滚为原版本
                 problem.setVersion(old_problem.getVersion() + 1);
+                for (int idx = 1; ; idx++) {
+                    if (!fileService.isRegularFile(dir.resolve("input").resolve(idx + ".in"))) {
+                        problem.setTestCaseNum(idx - 1);
+                        break;
+                    }
+                }
+
+
 
                 problemUpdateService.update(problemId, problem);  // 更新 problem
                 problemTagUpdateService.batchDelete(problemId); // 删除旧的 problem_tag
@@ -213,9 +228,12 @@ public class ProblemService {
                         minioService.upload(dir.resolve("input").resolve(idx + ".in"), keyPrefix + "input/" + idx);
                         idx++;
                     }
+                    problem.setTestCaseNum(idx - 1); // 更新测试数据数量
                 } catch (Exception e) {
                     throw new RuntimeException("input测试数据保存至MinIO失败", e);
                 }
+
+
 
             } catch (Exception e) {
                 try {

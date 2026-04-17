@@ -80,6 +80,7 @@ solution 题解
 difficulty 难度，以cf分数形式
 problem_key MinIO存储中题目对应key（uuid）
 version 版本号，每次更新题面时递增
+test_case_num 测试点数量
 
 CREATE TABLE problem (
     id BIGSERIAL PRIMARY KEY,
@@ -94,7 +95,8 @@ CREATE TABLE problem (
     solution TEXT,
     difficulty INTEGER,
     problem_key VARCHAR(255) NOT NULL,
-    version INTEGER NOT NULL
+    version INTEGER NOT NULL,
+    test_case_num INTEGER NOT NULL
 );
 ```
 

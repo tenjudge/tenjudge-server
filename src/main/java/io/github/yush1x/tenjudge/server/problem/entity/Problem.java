@@ -22,4 +22,5 @@ public class Problem {
     private Integer difficulty;
     private String problemKey;
     private Integer version;
+    private Integer testCaseNum;
 }

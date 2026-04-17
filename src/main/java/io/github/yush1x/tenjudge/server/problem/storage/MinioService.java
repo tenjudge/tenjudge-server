@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -96,6 +97,25 @@ public class MinioService {
                         .object(objectName)
                         .build()
         );
+    }
+
+    /**
+     * 从 MinIO 读取纯文本对象内容为字符串
+     * 注意读取文件内容不宜超过1MB，避免占用过量内存
+     * 文件内容须使用UTF-8编码
+     * @param objectName MinIO 中的对象名称
+     * @return 对象内容字符串
+     * @throws Exception 当对象不存在读取失败时抛出异常
+     */
+    public String read(String objectName) throws Exception {
+        try (InputStream inputStream = minioClient.getObject(
+                GetObjectArgs.builder()
+                        .bucket(bucketName)
+                        .object(objectName)
+                        .build()
+        )) {
+            return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
+        }
     }
 
     /**
