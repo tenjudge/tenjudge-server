@@ -75,7 +75,7 @@ public class ProblemService {
             problem.setAuthorId(authService.getLoginId());
             problem.setVisibility("private");
             problem.setStatus("pending");
-            problem.setJudgeType(problemConfig.getJudge_type());
+            problem.setChecker(problemConfig.getChecker());
             problem.setTimeLimit(problemConfig.getTime_limit());
             problem.setMemoryLimit(problemConfig.getMemory_limit());
             problem.setName(problemConfig.getName());
@@ -114,7 +114,7 @@ public class ProblemService {
                 throw new RuntimeException("std.cpp 文件保存至MinIO失败", e);
             }
             try { // checker.cpp
-                if ("special".equals(problemConfig.getJudge_type())) {
+                if ("special".equals(problemConfig.getChecker())) {
                     minioService.upload(dir.resolve("checker.cpp"), keyPrefix + "checker.cpp");
                 }
             } catch (Exception e) {
@@ -180,7 +180,7 @@ public class ProblemService {
                 problem.setAuthorId(authService.getLoginId());
                 problem.setVisibility("private");
                 problem.setStatus("pending");
-                problem.setJudgeType(problemConfig.getJudge_type());
+                problem.setChecker(problemConfig.getChecker());
                 problem.setTimeLimit(problemConfig.getTime_limit());
                 problem.setMemoryLimit(problemConfig.getMemory_limit());
                 problem.setName(problemConfig.getName());
@@ -203,7 +203,6 @@ public class ProblemService {
                 }
 
 
-
                 problemUpdateService.update(problemId, problem);  // 更新 problem
                 problemTagUpdateService.batchDelete(problemId); // 删除旧的 problem_tag
                 if (problemConfig.getTags() != null && !problemConfig.getTags().isEmpty()) {
@@ -219,7 +218,7 @@ public class ProblemService {
                     throw new RuntimeException("std.cpp 文件保存至MinIO失败", e);
                 }
                 try { // checker.cpp
-                    if ("special".equals(problemConfig.getJudge_type())) {
+                    if ("special".equals(problemConfig.getChecker())) {
                         minioService.upload(dir.resolve("checker.cpp"), keyPrefix + "checker.cpp");
                     }
                 } catch (Exception e) {

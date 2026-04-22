@@ -11,7 +11,7 @@ public class Problem {
     private Long authorId;
     private String visibility;
     private String status;
-    private String judgeType;
+    private String checker;
     private Integer timeLimit;
     private Integer memoryLimit;
     private String name;

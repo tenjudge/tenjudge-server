@@ -1,5 +1,6 @@
 package io.github.yush1x.tenjudge.server.problem.service;
 
+import io.github.yush1x.tenjudge.server.common.Checker;
 import io.github.yush1x.tenjudge.server.common.Code;
 import io.github.yush1x.tenjudge.server.common.Tag;
 import io.github.yush1x.tenjudge.server.exception.BizException;
@@ -36,14 +37,22 @@ public class ProblemRequestChecker {
         }
 
         // 检查 config 必要参数完整
-        if (problemConfig.getName() == null || problemConfig.getTime_limit() == null ||
-                problemConfig.getMemory_limit() == null || problemConfig.getJudge_type() == null) {
-            throw new BizException(Code.CONFIG_FILE_INVALID, "Some configs missing");
+        if (problemConfig.getName() == null) {
+            throw new BizException(Code.CONFIG_FILE_INVALID, "Name config missing");
+        }
+        if (problemConfig.getMemory_limit() == null) {
+            throw new BizException(Code.CONFIG_FILE_INVALID, "Memory config missing");
+        }
+        if (problemConfig.getTime_limit() == null) {
+            throw new BizException(Code.CONFIG_FILE_INVALID, "Time config missing");
+        }
+        if (problemConfig.getChecker() == null) {
+            throw new BizException(Code.CONFIG_FILE_INVALID, "Checker config missing");
         }
 
         // 检查已有参数合法性
-        if (!"normal".equals(problemConfig.getJudge_type()) && !"special".equals(problemConfig.getJudge_type())) {
-            throw new BizException(Code.CONFIG_FILE_INVALID, "Judge type not supported");
+        if (!Checker.contains(problemConfig.getChecker())) {
+            throw new BizException(Code.CONFIG_FILE_INVALID, "Checker not supported");
         }
         if (problemConfig.getDifficulty() != null && (problemConfig.getDifficulty() < 1 || problemConfig.getDifficulty() > 3500)) {
             throw new BizException(Code.CONFIG_FILE_INVALID, "Difficulty not supported");
@@ -69,7 +78,7 @@ public class ProblemRequestChecker {
         if (!fileService.isRegularFile(dir.resolve("std.cpp"))) {
             throw new BizException(Code.FILE_MISSING, "std file missing");
         }
-        if ("special".equals(problemConfig.getJudge_type()) && !fileService.isRegularFile(dir.resolve("checker.cpp"))) {
+        if ("special".equals(problemConfig.getChecker()) && !fileService.isRegularFile(dir.resolve("checker.cpp"))) {
             throw new BizException(Code.FILE_MISSING, "checker file missing");
         }
         if (!fileService.isRegularFile(dir.resolve("input").resolve("1.in"))) {

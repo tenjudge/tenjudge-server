@@ -56,7 +56,7 @@ public enum Tag {
             .map(Tag::getValue)
             .collect(Collectors.toSet());
 
-    // 判断字符串是否属于有效的题目标签
+    // 判断字符串是否属于有效的Tag标签
     public static boolean contains(String tag) {
         return tag != null && TAG_SET.contains(tag);
     }

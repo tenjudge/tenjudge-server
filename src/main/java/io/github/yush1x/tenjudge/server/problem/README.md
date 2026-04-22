@@ -27,11 +27,11 @@ checker.cpp     # 判题程序（强制c++）
 
 config.yaml格式：
 ```yaml
-name: "Two Sum Problem"       # 题目名称，必填，50字以内
-time_limit: 1500               # 时间限制，单位毫秒，整数，必填，大于0
-memory_limit: 256           # 内存限制，单位MB，整数，必填，大于0
-judge_type: "normal"          # 判题类型，可选 "normal" 或 "special"，必填
-difficulty: 1600              # 题目难度评分，[1, 3500]
+name: "Two Sum Problem"      # 题目名称，必填，50字以内
+time_limit: 1500             # 时间限制，单位毫秒，整数，必填，大于0
+memory_limit: 256            # 内存限制，单位MB，整数，必填，大于0
+checker: "normal"            # 判题类型，可选"special"或 "wcmp" 等自带的checker，必填
+difficulty: 1600             # 题目难度评分，[1, 3500]
 tags:
   - "sort"
   - "hash"
@@ -64,14 +64,15 @@ tags:
 *注意：题面更新无论是否通过，都会强制覆盖原数据*
 
 
-## 数据库
+## 数据库与缓存
+### PostgreSQL
 `problem` 表：
 ```
 id 题目ID，自增主键
 author_id 作者ID
 visibility 可见性 (public/private)
 status 题目验证状态 (accepted/rejected/pending)
-judge_type 评测类型 (normal/special)
+checker 评测类型 (special/wcmp/lcmp/fcmp)
 time_limit 时间限制，单位s（支持小数）
 memory_limit 内存限制，单位MB（支持小数）
 name 题目名称
@@ -87,7 +88,7 @@ CREATE TABLE problem (
     author_id BIGINT NOT NULL,
     visibility VARCHAR(32) NOT NULL,
     status VARCHAR(32) NOT NULL,
-    judge_type VARCHAR(32) NOT NULL,
+    checker VARCHAR(32) NOT NULL,
     time_limit INTEGER NOT NULL,
     memory_limit INTEGER NOT NULL,
     name VARCHAR(255) NOT NULL,
@@ -109,6 +110,11 @@ CREATE TABLE problem_tag (
 );
 
 CREATE INDEX problem_tag_tag_key ON problem_tag(tag);
+```
+
+### Redis
+```
+lock:problem:{problemId}  题目的读写锁
 ```
 
 ## 业务实现
