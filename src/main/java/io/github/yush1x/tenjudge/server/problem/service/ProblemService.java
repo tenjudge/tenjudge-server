@@ -15,6 +15,7 @@ import io.github.yush1x.tenjudge.server.problem.vo.CreateProblemVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
+import org.redisson.api.RReadWriteLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -142,10 +143,12 @@ public class ProblemService {
         authService.checkAdmin();
         Long problemId = problemUpdateRequestDTO.getId();
 
-        RLock lock = redissonClient.getLock("lock:problem:" + problemId); // 使用锁名：lock:problem:{problemId}
+        RReadWriteLock rwlock = redissonClient.getReadWriteLock("lock:problem:" + problemId); // 使用锁名：lock:problem:{problemId}
+        RLock writeLock = rwlock.writeLock();
+
         boolean locked = false;
         try {
-            locked = lock.tryLock(1, 10, TimeUnit.SECONDS);
+            locked = writeLock.tryLock(1, 10, TimeUnit.SECONDS);
             if (!locked) {
                 throw new BizException(Code.TOO_MANY_REQUESTS, "当前题目正在被修改，请稍后再试");
             }
@@ -258,8 +261,8 @@ public class ProblemService {
             Thread.currentThread().interrupt();
             throw new RuntimeException("Lock interrupted", e);
         } finally {
-            if (locked && lock.isHeldByCurrentThread()) {
-                lock.unlock();
+            if (locked && writeLock.isHeldByCurrentThread()) {
+                writeLock.unlock();
             }
         }
 
