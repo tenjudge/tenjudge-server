@@ -58,7 +58,7 @@ public class ProblemService {
         // 解压至 /temp/problem/<uuid>/
         Path dir = Path.of(tempDir, "problem", temp_uuid);
         try {
-            new FileService().unzip(file, dir);
+            fileService.unzip(file, dir);
         } catch (Exception e) {
             fileService.deleteDirectory(dir);
             throw new BizException(Code.UNZIP_FAILED);
@@ -68,13 +68,12 @@ public class ProblemService {
 
         try {
             // 合法性校验
-            ProblemConfig problemConfig =  problemRequestChecker.checkProblemFiles(dir);
+            ProblemConfig problemConfig = problemRequestChecker.checkProblemFiles(dir);
 
             // 存入数据库 Problem + ProblemTag
             Problem problem = new Problem();
             problem.setAuthorId(authService.getLoginId());
             problem.setVisibility("private");
-            problem.setStatus("pending");
             problem.setChecker(problemConfig.getChecker());
             problem.setTimeLimit(problemConfig.getTime_limit());
             problem.setMemoryLimit(problemConfig.getMemory_limit());
@@ -90,12 +89,8 @@ public class ProblemService {
             problem.setDifficulty(problemConfig.getDifficulty());
             problem.setProblemKey(problem_key);
             problem.setVersion(1);
-            for (int idx = 1; ; idx++) {
-                if (!fileService.isRegularFile(dir.resolve("input").resolve(idx + ".in"))) {
-                    problem.setTestCaseNum(idx - 1);
-                    break;
-                }
-            }
+            int testCaseNum = countContinuousTestCaseNum(dir);
+            problem.setTestCaseNum(testCaseNum);
 
             Long problemId = problemUpdateService.insert(problem);  // 存入 problem
             if (problemConfig.getTags() != null && !problemConfig.getTags().isEmpty()) {
@@ -108,11 +103,6 @@ public class ProblemService {
 
             // 将代码和测试数据上传至MinIO，路径为 problem/{problem_key}/...
             String keyPrefix = "problem/" + problem_key + "/";
-            try { // std.cpp
-                minioService.upload(dir.resolve("std.cpp"), keyPrefix + "std.cpp");
-            } catch (Exception e) {
-                throw new RuntimeException("std.cpp 文件保存至MinIO失败", e);
-            }
             try { // checker.cpp
                 if ("special".equals(problemConfig.getChecker())) {
                     minioService.upload(dir.resolve("checker.cpp"), keyPrefix + "checker.cpp");
@@ -121,14 +111,18 @@ public class ProblemService {
                 throw new RuntimeException("checker.cpp 文件保存至MinIO失败", e);
             }
             try { // input
-                int idx = 1;
-                while (fileService.isRegularFile(dir.resolve("input").resolve(idx + ".in"))) {
-                    minioService.upload(dir.resolve("input").resolve(idx + ".in"), keyPrefix + "input/" + idx);
-                    idx++;
+                for (int idx = 1; idx <= testCaseNum; idx++) {
+                    minioService.upload(dir.resolve("input").resolve(idx + ".in"), keyPrefix + "input/" + idx + ".in");
                 }
-                problem.setTestCaseNum(idx - 1); // 更新测试数据数量
             } catch (Exception e) {
                 throw new RuntimeException("input测试数据保存至MinIO失败", e);
+            }
+            try { // answer
+                for (int idx = 1; idx <= testCaseNum; idx++) {
+                    minioService.upload(dir.resolve("answer").resolve(idx + ".ans"), keyPrefix + "answer/" + idx + ".ans");
+                }
+            } catch (Exception e) {
+                throw new RuntimeException("answer测试数据保存至MinIO失败", e);
             }
         } finally { // 清空当前temp文件夹
             fileService.deleteDirectory(dir);
@@ -148,7 +142,7 @@ public class ProblemService {
 
         boolean locked = false;
         try {
-            locked = writeLock.tryLock(1, 10, TimeUnit.SECONDS);
+            locked = writeLock.tryLock(3, 10, TimeUnit.SECONDS);
             if (!locked) {
                 throw new BizException(Code.TOO_MANY_REQUESTS, "当前题目正在被修改，请稍后再试");
             }
@@ -165,7 +159,7 @@ public class ProblemService {
             // 解压至 /temp/problem/<uuid>/
             Path dir = Path.of(tempDir, "problem", temp_uuid);
             try {
-                new FileService().unzip(file, dir);
+                fileService.unzip(file, dir);
             } catch (Exception e) {
                 fileService.deleteDirectory(dir);
                 throw new BizException(Code.UNZIP_FAILED);
@@ -179,7 +173,6 @@ public class ProblemService {
                 Problem problem = new Problem();
                 problem.setAuthorId(authService.getLoginId());
                 problem.setVisibility("private");
-                problem.setStatus("pending");
                 problem.setChecker(problemConfig.getChecker());
                 problem.setTimeLimit(problemConfig.getTime_limit());
                 problem.setMemoryLimit(problemConfig.getMemory_limit());
@@ -195,12 +188,8 @@ public class ProblemService {
                 problem.setDifficulty(problemConfig.getDifficulty());
                 problem.setProblemKey(new_problem_key); // 这里可以先覆盖，如果失败会回滚为原版本
                 problem.setVersion(old_problem.getVersion() + 1);
-                for (int idx = 1; ; idx++) {
-                    if (!fileService.isRegularFile(dir.resolve("input").resolve(idx + ".in"))) {
-                        problem.setTestCaseNum(idx - 1);
-                        break;
-                    }
-                }
+                int testCaseNum = countContinuousTestCaseNum(dir);
+                problem.setTestCaseNum(testCaseNum);
 
 
                 problemUpdateService.update(problemId, problem);  // 更新 problem
@@ -211,12 +200,6 @@ public class ProblemService {
 
                 // 将代码和测试数据上传至MinIO，路径为 problem/{problem_key}/...
                 String keyPrefix = "problem/" + new_problem_key + "/";
-
-                try { // std.cpp
-                    minioService.upload(dir.resolve("std.cpp"), keyPrefix + "std.cpp");
-                } catch (Exception e) {
-                    throw new RuntimeException("std.cpp 文件保存至MinIO失败", e);
-                }
                 try { // checker.cpp
                     if ("special".equals(problemConfig.getChecker())) {
                         minioService.upload(dir.resolve("checker.cpp"), keyPrefix + "checker.cpp");
@@ -225,14 +208,18 @@ public class ProblemService {
                     throw new RuntimeException("checker.cpp 文件保存至MinIO失败", e);
                 }
                 try { // input
-                    int idx = 1;
-                    while (fileService.isRegularFile(dir.resolve("input").resolve(idx + ".in"))) {
-                        minioService.upload(dir.resolve("input").resolve(idx + ".in"), keyPrefix + "input/" + idx);
-                        idx++;
+                    for (int idx = 1; idx <= testCaseNum; idx++) {
+                        minioService.upload(dir.resolve("input").resolve(idx + ".in"), keyPrefix + "input/" + idx + ".in");
                     }
-                    problem.setTestCaseNum(idx - 1); // 更新测试数据数量
                 } catch (Exception e) {
                     throw new RuntimeException("input测试数据保存至MinIO失败", e);
+                }
+                try { // answer
+                    for (int idx = 1; idx <= testCaseNum; idx++) {
+                        minioService.upload(dir.resolve("answer").resolve(idx + ".ans"), keyPrefix + "answer/" + idx + ".ans");
+                    }
+                } catch (Exception e) {
+                    throw new RuntimeException("answer测试数据保存至MinIO失败", e);
                 }
 
 
@@ -267,5 +254,17 @@ public class ProblemService {
 
     }
 
+    private int countContinuousTestCaseNum(Path dir) {
+        for (int idx = 1; ; idx++) {
+            boolean inputExists = fileService.isRegularFile(dir.resolve("input").resolve(idx + ".in"));
+            boolean answerExists = fileService.isRegularFile(dir.resolve("answer").resolve(idx + ".ans"));
+            if (inputExists != answerExists) {
+                throw new BizException(Code.FILE_MISSING, "input/answer file pair missing at index " + idx);
+            }
+            if (!inputExists) {
+                return idx - 1;
+            }
+        }
+    }
 
 }

@@ -75,14 +75,26 @@ public class ProblemRequestChecker {
         if (!fileService.isRegularFile(dir.resolve("statement.md"))) {
             throw new BizException(Code.FILE_MISSING, "statement file missing");
         }
-        if (!fileService.isRegularFile(dir.resolve("std.cpp"))) {
-            throw new BizException(Code.FILE_MISSING, "std file missing");
-        }
         if ("special".equals(problemConfig.getChecker()) && !fileService.isRegularFile(dir.resolve("checker.cpp"))) {
             throw new BizException(Code.FILE_MISSING, "checker file missing");
         }
+
+        // 强制 input/i.in 与 answer/i.ans 从 1 开始连续成对存在
         if (!fileService.isRegularFile(dir.resolve("input").resolve("1.in"))) {
             throw new BizException(Code.FILE_MISSING, "input file missing");
+        }
+        if (!fileService.isRegularFile(dir.resolve("answer").resolve("1.ans"))) {
+            throw new BizException(Code.FILE_MISSING, "answer file missing");
+        }
+        for (int idx = 1; ; idx++) {
+            boolean inputExists = fileService.isRegularFile(dir.resolve("input").resolve(idx + ".in"));
+            boolean answerExists = fileService.isRegularFile(dir.resolve("answer").resolve(idx + ".ans"));
+            if (inputExists != answerExists) {
+                throw new BizException(Code.FILE_MISSING, "input/answer file pair missing at index " + idx);
+            }
+            if (!inputExists) {
+                break;
+            }
         }
 
         return problemConfig;
