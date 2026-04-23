@@ -10,7 +10,6 @@ public class Problem {
     private Long id;
     private Long authorId;
     private String visibility;
-    private String status;
     private String checker;
     private Integer timeLimit;
     private Integer memoryLimit;
