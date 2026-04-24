@@ -24,6 +24,22 @@
 - 邮箱：`^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$`
 - 角色：必须为`super_admin`、`admin`或`user`之一
 
+### Agent 鉴权
+所有请求（用户 / Agent）最终都走 server 后端的同一套权限校验逻辑。Agent 本身不做权限判断，在处理请求前，**先向后端确认权限是否允许**。
+Agent 调用测评和访问题目接口时，**直接携带用户 token，后端按用户本人请求处理**，而不是Agent请求。防止用户通过 Agent 获取本不该访问的数据。
+
+### 权限规则
+#### 管理员权限
+- 管理员/超级管理员拥有所有题目的访问和题目内容的修改权限
+- 超级管理员拥有管理用户，控制题目可见性和管理比赛的权限
+
+#### 题目权限
+管理员/超级管理员可以无限制访问和提交所有题目。
+
+题目可见性分为一下三种：
+- contest 比赛题目：仅可通过 `contest/{contest_id}/problem/{problem_index}` 访问
+- public 公开题目：可通过比赛访问（如果存在）也可直接通过`problem_id`访问
+- private 私密题目：仅管理员可访问
 
 ## 功能
 ### 面向前端
@@ -40,7 +56,7 @@ id 用户ID，自增主键
 username 用户名，唯一，索引
 password 密码，加密存储
 created_at 创建时间，自动生成
-role 角色
+role 角色（super_admin、admin、user）
 rating 分数
 max_rating 最高分数
 email 电子邮件地址，唯一，索引

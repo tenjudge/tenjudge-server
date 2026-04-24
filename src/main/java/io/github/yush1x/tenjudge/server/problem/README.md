@@ -49,29 +49,22 @@ tags:
 - **同时存在 `input/i.in` 和 `answer/i.ans` 的最大连续 `i`**
 - 若任意下标出现仅存在一侧文件（只存在 `in` 或只存在 `ans`），请求判定为非法
 
-### 题目数据存储
-使用 MinIO 对象存储，存储测试点与判题相关文件，对象名结构如下：
-```
-problem/<problem_key>/
-    input/
-        1.in
-        2.in
-    answer/
-        1.ans
-        2.ans
-    checker.cpp   # 仅 checker=special 时存在
-```
+### 题目可见性
+题目可见性分为一下三种：
+- contest 比赛题目：仅可通过 `contest/{contest_id}/problem/{problem_index}` 访问
+- public 公开题目：可通过比赛访问（如果存在）也可直接通过`problem_id`访问
+- private 私密题目：仅管理员可访问
 
-- `problem_key` 为 uuid，同时作为指针存储至数据库，指向对应题目对象目录
+题目查询操作对于非管理员，若题目可见性为contest则会默认过滤掉部分字段
 
-## 数据库与缓存
+## 数据存储
 
 ### PostgreSQL
 `problem` 表：
 ```
 id 题目ID，自增主键
 author_id 作者ID
-visibility 可见性 (public/private)
+visibility 可见性 (contest/public/private)
 checker 评测类型 (special/wcmp/lcmp/fcmp)
 time_limit 时间限制，单位ms（整数）
 memory_limit 内存限制，单位MB（整数）
@@ -111,6 +104,22 @@ CREATE TABLE problem_tag (
 CREATE INDEX problem_tag_tag_key ON problem_tag(tag);
 ```
 
+### MinIO
+使用 MinIO 对象存储，存储测试点与判题相关文件，对象名结构如下：
+```
+problem/<problem_key>/
+    input/
+        1.in
+        2.in
+    answer/
+        1.ans
+        2.ans
+    checker.cpp   # 仅 checker=special 时存在
+```
+
+- `problem_key` 为 uuid，同时作为指针存储至数据库，指向对应题目对象目录
+
+
 ### Redis
 ```
 lock:problem:{problemId}  题目的读写锁
@@ -134,8 +143,25 @@ lock:problem:{problemId}  题目的读写锁
 - 发生异常时，删除新 uuid 目录下的对象存储数据，保持原 `problem_key` 不变，指向原数据
 
 #### 悲观锁
-对题目更新操作使用分布式锁，防止并发更新导致数据不一致问题
+对题目更新操作使用Redisson分布式读写锁，防止并发更新导致数据不一致问题
 
 #### 版本号机制
 每次更新时，同步更新题目版本号。评测机可提前拉取题目测试点数据并缓存，每次测评时验证版本号是否过期，过期则重新拉取测试点数据。
 （目前该设计已实现但未被测评机启用，测评机直接读取 `problem_key` 识别版本）
+
+### 题目访问权限检查
+具体实现在 `ProblemPermissionChecker` 类中
+
+用户访问题目的鉴权仅基于题目可见性和token，不依赖contest_id或submitter_id。
+- 对于超级管理员和管理员，直接放行。
+- 对于普通用户，首先检查题目可见性：
+  - 若题目为 public，则直接放行。
+  - 若题目为 private，则拒绝访问。
+  - 若题目为 contest，需验证当前用户是否为该 contest 的参赛者，若验证通过则放行，否则拒绝访问。
+
+以下权限的鉴定由具体业务代码实现：
+- 对于测评请求，若题目处于 contest 状态，则仅允许用户提交，**不允许非管理员用户的 Agent 提交**，这一步的拦截在 Submit 模块中的 Agent 提交接口中实现。防止选手通过Agent看到测评数据。
+
+细节说明：
+- Agent会**携带用户Token来请求访问或测评，两者复用同一套鉴权逻辑**，不需要单独为Agent设计鉴权方案。**用一套鉴权但不共用一套调用接口**，
+因为处理用户和Agent请求的业务逻辑不同，如数据库中对于Agent提交不应记录submitter_id为用户。

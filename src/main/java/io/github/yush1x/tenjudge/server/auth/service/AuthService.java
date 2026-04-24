@@ -44,6 +44,10 @@ public class AuthService {
         return stpService.getLoginIdAsLong();
     }
 
+    public String getRole(Long id) {
+        return authChecker.getRole(id);
+    }
+
     // 注册用户，返回id
     public RegisterVO register(RegisterRequestDTO  registerRequestDTO) {
         authRequestChecker.checkRegisterRequest(registerRequestDTO);

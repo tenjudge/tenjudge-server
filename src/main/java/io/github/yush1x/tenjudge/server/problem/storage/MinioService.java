@@ -48,18 +48,32 @@ public class MinioService {
      * @throws Exception 文件读取失败或上传失败时抛出异常
      */
     public void upload(MultipartFile file, String objectName) throws Exception {
+        try (InputStream inputStream = file.getInputStream()) {
+            upload(inputStream, objectName, file.getSize(), file.getContentType());
+        }
+    }
+
+    /**
+     * 上传 InputStream 到 MinIO，会覆盖原有同名对象
+     * 自动检查并生成桶
+     *
+     * @param inputStream 上传的输入流（由调用方负责创建）
+     * @param objectName  存储到 MinIO 中的对象名称
+     * @param size        输入流总字节数，未知时可传 -1
+     * @param contentType 对象 MIME 类型，可为 null
+     * @throws Exception 输入流读取失败或上传失败时抛出异常
+     */
+    public void upload(InputStream inputStream, String objectName, long size, String contentType) throws Exception {
         ensureBucketExists();
 
-        try (InputStream inputStream = file.getInputStream()) {
-            minioClient.putObject(
-                    PutObjectArgs.builder()
-                            .bucket(bucketName)
-                            .object(objectName)
-                            .stream(inputStream, file.getSize(), -1L)
-                            .contentType(file.getContentType())
-                            .build()
-            );
-        }
+        minioClient.putObject(
+                PutObjectArgs.builder()
+                        .bucket(bucketName)
+                        .object(objectName)
+                        .stream(inputStream, size, -1L)
+                        .contentType(contentType)
+                        .build()
+        );
     }
 
     /**
@@ -81,6 +95,22 @@ public class MinioService {
                         .filename(filePath.toString())
                         .build()
         );
+    }
+
+    /**
+     * 上传字符串内容到 MinIO，会覆盖原有同名对象
+     * 自动检查并生成桶
+     * 使用 UTF-8 编码并按 text/plain; charset=UTF-8 存储
+     *
+     * @param content    要上传的字符串内容
+     * @param objectName 存储到 MinIO 中的对象名称
+     * @throws Exception 内容编码失败或上传失败时抛出异常
+     */
+    public void upload(String content, String objectName) throws Exception {
+        byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
+        try (InputStream inputStream = new java.io.ByteArrayInputStream(bytes)) {
+            upload(inputStream, objectName, bytes.length, "text/plain; charset=UTF-8");
+        }
     }
 
     /**
@@ -213,5 +243,6 @@ public class MinioService {
                         .build()
         );
     }
-}
 
+
+}

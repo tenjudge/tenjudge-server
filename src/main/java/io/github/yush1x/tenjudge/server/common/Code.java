@@ -23,6 +23,8 @@ public enum Code {
     TOO_MANY_REQUESTS(20006, "too many requests"),
     PROBLEM_NOT_FOUND(20007, "problem not found"),
 
+
+
     SERVER_ERROR(1, "server error");
 
     public final int code;
