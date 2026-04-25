@@ -172,7 +172,7 @@ public class ProblemService {
                 // 存入数据库 Problem + ProblemTag
                 Problem problem = new Problem();
                 problem.setAuthorId(authService.getLoginId());
-                problem.setVisibility("private");
+                // problem.setVisibility("private"); 不应该改变可见性
                 problem.setChecker(problemConfig.getChecker());
                 problem.setTimeLimit(problemConfig.getTime_limit());
                 problem.setMemoryLimit(problemConfig.getMemory_limit());

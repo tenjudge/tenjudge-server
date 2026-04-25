@@ -20,6 +20,17 @@ spring:
           min-idle: 0        # 最小空闲连接
           max-wait: 1000ms    # 连接等待时间
 
+  # RabbitMQ
+  rabbitmq:
+    host: 127.0.0.1
+    port: 5672
+    virtual-host: tenjudge
+    username: admin
+    password: "051223"
+    listener:
+      simple:
+        prefetch: 1
+
 # MyBatis
 mybatis-plus:
   configuration:

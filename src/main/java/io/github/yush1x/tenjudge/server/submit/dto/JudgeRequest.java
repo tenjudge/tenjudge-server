@@ -10,10 +10,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class JudgeRequest {
-    String type;
-    Long problemId;
-    Long submitterId;
-    Long contestId;
-    String language;
-    String code;
+    private Long problemId;
+    private Long contestId;
+    private String language;
+    private String code;
+    private Boolean isAgent;
 }

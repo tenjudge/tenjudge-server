@@ -51,10 +51,10 @@ tags:
 
 ### 题目可见性
 题目可见性分为一下三种：
-- contest 比赛题目：仅可通过 `contest/{contest_id}/problem/{problem_index}` 访问
-- public 公开题目：可通过比赛访问（如果存在）也可直接通过`problem_id`访问
-- private 私密题目：仅管理员可访问
-
+- public 公开题目：所有人可访问和提交
+- private 私密题目：
+  - 处于比赛状态下的题目仍属于private的一种，通过contest_id确认用户报名比赛且比赛正在进行后可访问。此时需要过滤掉题面信息的部分字段（如测试点信息，tag）。
+  - 其余情况则仅允许管理元访问
 题目查询操作对于非管理员，若题目可见性为contest则会默认过滤掉部分字段
 
 ## 数据存储
@@ -64,7 +64,7 @@ tags:
 ```
 id 题目ID，自增主键
 author_id 作者ID
-visibility 可见性 (contest/public/private)
+visibility 可见性 (public/private)
 checker 评测类型 (special/wcmp/lcmp/fcmp)
 time_limit 时间限制，单位ms（整数）
 memory_limit 内存限制，单位MB（整数）
@@ -152,15 +152,13 @@ lock:problem:{problemId}  题目的读写锁
 ### 题目访问权限检查
 具体实现在 `ProblemPermissionChecker` 类中
 
-用户访问题目的鉴权仅基于题目可见性和token，不依赖contest_id或submitter_id。
 - 对于超级管理员和管理员，直接放行。
 - 对于普通用户，首先检查题目可见性：
   - 若题目为 public，则直接放行。
-  - 若题目为 private，则拒绝访问。
-  - 若题目为 contest，需验证当前用户是否为该 contest 的参赛者，若验证通过则放行，否则拒绝访问。
+  - 若题目为 private，验证是否为比赛参赛者，且比赛正在进行中。
 
 以下权限的鉴定由具体业务代码实现：
-- 对于测评请求，若题目处于 contest 状态，则仅允许用户提交，**不允许非管理员用户的 Agent 提交**，这一步的拦截在 Submit 模块中的 Agent 提交接口中实现。防止选手通过Agent看到测评数据。
+- 对于测评请求，若题目处于比赛中，则仅允许用户提交，**不允许非管理员用户的 Agent 提交**，这一步的拦截在 Submit 模块中的 Agent 提交接口中实现。防止选手通过Agent看到测评数据。
 
 细节说明：
 - Agent会**携带用户Token来请求访问或测评，两者复用同一套鉴权逻辑**，不需要单独为Agent设计鉴权方案。**用一套鉴权但不共用一套调用接口**，

@@ -90,9 +90,6 @@ submission/<submission_id>/
 
 ### 提交权限鉴定
 
-- 对于所有提交，无论通过直接使用 `problem_id` 还是通过 `contest_id + problem_index` 间接关联题目，都只按当前规则拼接请求参数，统一发送给封装好的测评接口。
-测评接口中做详细的鉴权，接口中只要题目处于contest状态，则必须检查是否包含contest_id和submitter_id，并判断当前用户是否为contest的参赛者。
-
 Agent 提交不会记录 submitter_id 或 contest_id
 contest_id 只有在比赛时间中且是参赛队员才会被记录，一旦记录就代表当前提交会被判定为比赛提交且记入榜单
 
