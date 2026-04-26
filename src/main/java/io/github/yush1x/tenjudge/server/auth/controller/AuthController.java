@@ -1,8 +1,8 @@
 package io.github.yush1x.tenjudge.server.auth.controller;
 
+import io.github.yush1x.tenjudge.server.auth.dto.LoginRequest;
+import io.github.yush1x.tenjudge.server.auth.dto.RegisterRequest;
 import io.github.yush1x.tenjudge.server.auth.service.AuthService;
-import io.github.yush1x.tenjudge.server.auth.dto.LoginRequestDTO;
-import io.github.yush1x.tenjudge.server.auth.dto.RegisterRequestDTO;
 import io.github.yush1x.tenjudge.server.auth.vo.LoginVO;
 import io.github.yush1x.tenjudge.server.auth.vo.RegisterVO;
 import io.github.yush1x.tenjudge.server.common.Result;
@@ -18,14 +18,14 @@ public class AuthController {
 
     @PostMapping("/register")
     @Operation(summary = "注册用户", description = "注册用户，返回用户id。管理员和超级管理员需要管理员权限才能注册")
-    public Result<RegisterVO> register(@RequestBody RegisterRequestDTO registerRequestDTO) {
-        return Result.success(authService.register(registerRequestDTO));
+    public Result<RegisterVO> register(@RequestBody RegisterRequest registerRequest) {
+        return Result.success(authService.register(registerRequest));
     }
 
     @PostMapping("/login")
     @Operation(summary = "登录", description = "登录，返回用户完整信息和token")
-    public Result<LoginVO> login(@RequestBody LoginRequestDTO loginRequestDTO) {
-        return Result.success(authService.login(loginRequestDTO));
+    public Result<LoginVO> login(@RequestBody LoginRequest loginRequest) {
+        return Result.success(authService.login(loginRequest));
     }
 
     @DeleteMapping("/logout")

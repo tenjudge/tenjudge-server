@@ -4,7 +4,7 @@ import io.github.yush1x.tenjudge.server.auth.service.AuthService;
 import io.github.yush1x.tenjudge.server.common.Code;
 import io.github.yush1x.tenjudge.server.exception.BizException;
 import io.github.yush1x.tenjudge.server.problem.dto.ProblemConfig;
-import io.github.yush1x.tenjudge.server.problem.dto.ProblemUpdateRequestDTO;
+import io.github.yush1x.tenjudge.server.problem.dto.ProblemUpdateRequest;
 import io.github.yush1x.tenjudge.server.problem.entity.Problem;
 import io.github.yush1x.tenjudge.server.problem.persistence.ProblemQueryService;
 import io.github.yush1x.tenjudge.server.problem.persistence.ProblemTagUpdateService;
@@ -133,9 +133,9 @@ public class ProblemService {
 
 
     @Transactional(rollbackFor = Exception.class)
-    public void update(ProblemUpdateRequestDTO problemUpdateRequestDTO, MultipartFile file) {
+    public void update(ProblemUpdateRequest problemUpdateRequest, MultipartFile file) {
         authService.checkAdmin();
-        Long problemId = problemUpdateRequestDTO.getId();
+        Long problemId = problemUpdateRequest.getId();
 
         RReadWriteLock rwlock = redissonClient.getReadWriteLock("lock:problem:" + problemId); // 使用锁名：lock:problem:{problemId}
         RLock writeLock = rwlock.writeLock();

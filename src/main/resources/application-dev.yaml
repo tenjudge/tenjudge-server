@@ -4,8 +4,8 @@ spring:
   datasource:
     driver-class-name: org.postgresql.Driver
     url: jdbc:postgresql://127.0.0.1:5432/tenjudge
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    username: postgres
+    password: "051223"
 
   # Redis
   data:
@@ -31,26 +31,21 @@ spring:
       simple:
         prefetch: 1
 
-# MyBatis
-mybatis-plus:
-  configuration:
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
-  mapper-locations: classpath*:/mappers/**/*.xml
 
-sa-token:
-  token-name: tenjudge-token # token 名称（同时也是 cookie 名称）
-  timeout: 3600 # token 有效期（单位：秒） 默认30天，-1 代表永久有效 （同时作为 redis 中权限信息的过期时间）
-  active-timeout: -1 # token 最低活跃频率（单位：秒），如果 token 超过此时间没有访问系统就会被冻结，默认-1 代表不限制，永不冻结
 
+# MinIO
 minio:
   endpoint: http://127.0.0.1:9000
-  access-key: ${MINIO_ACCESS_KEY}
-  secret-key: ${MINIO_SECRET_KEY}
+  access-key: root
+  secret-key: 12345678
   bucket-name: tenjudge
 
 # App
 app:
   auth:
+    super-admin-username: admin # 默认超级管理员用户名
+    super-admin-password: "12345678" # 默认超级管理员密码
+    super-admin-email: "super_admin@tenjudge.com" # 默认超级管理员邮箱
     role-cache-expire: 3600 # 角色权限缓存过期时间（单位：秒）
   file-storage:
     temp: "/Users/shaun/Workspace/Data/TenJudge/temp"

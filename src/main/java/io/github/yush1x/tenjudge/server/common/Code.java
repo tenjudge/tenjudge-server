@@ -23,6 +23,10 @@ public enum Code {
     TOO_MANY_REQUESTS(20006, "too many requests"),
     PROBLEM_NOT_FOUND(20007, "problem not found"),
 
+    CONTEST_REQUEST_INVALID(30001, "contest request invalid"),
+    CONTEST_PROBLEM_INVALID(30002, "contest problem invalid"),
+    CONTEST_NOT_FOUND(30003, "contest not found"),
+
 
 
     SERVER_ERROR(1, "server error");

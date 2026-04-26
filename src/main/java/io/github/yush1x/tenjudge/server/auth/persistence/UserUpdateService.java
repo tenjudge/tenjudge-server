@@ -1,6 +1,6 @@
 package io.github.yush1x.tenjudge.server.auth.persistence;
 
-import io.github.yush1x.tenjudge.server.auth.dto.RegisterRequestDTO;
+import io.github.yush1x.tenjudge.server.auth.dto.RegisterRequest;
 import io.github.yush1x.tenjudge.server.auth.entity.User;
 import io.github.yush1x.tenjudge.server.auth.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
@@ -15,12 +15,12 @@ public class UserUpdateService {
 
     // 插入user，返回id
     @Transactional(rollbackFor = Exception.class)
-    public Long insert(RegisterRequestDTO registerRequestDTO) {
+    public Long insert(RegisterRequest registerRequest) {
         User user = new User();
-        user.setUsername(registerRequestDTO.getUsername());
-        user.setPassword(registerRequestDTO.getPassword());
-        user.setEmail(registerRequestDTO.getEmail());
-        user.setRole(registerRequestDTO.getRole());
+        user.setUsername(registerRequest.getUsername());
+        user.setPassword(registerRequest.getPassword());
+        user.setEmail(registerRequest.getEmail());
+        user.setRole(registerRequest.getRole());
         userMapper.insert(user);
         return user.getId();
     }

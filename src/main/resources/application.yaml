@@ -7,3 +7,15 @@ spring:
     multipart:
       max-file-size: 100MB
       max-request-size: 100MB
+
+# MyBatis
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  mapper-locations: classpath*:/mappers/**/*.xml
+
+# Sa-Token
+sa-token:
+  token-name: tenjudge-token # token 名称
+  timeout: 86400 # token 有效期（单位：秒） 默认30天，-1 代表永久有效 （同时作为 redis 中权限信息的过期时间）
+  active-timeout: -1 # token 最低活跃频率（单位：秒），如果 token 超过此时间没有访问系统就会被冻结，默认-1 代表不限制，永不冻结

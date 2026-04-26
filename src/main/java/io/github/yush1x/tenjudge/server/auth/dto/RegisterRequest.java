@@ -3,7 +3,7 @@ package io.github.yush1x.tenjudge.server.auth.dto;
 import lombok.Data;
 
 @Data
-public class RegisterRequestDTO {
+public class RegisterRequest {
 
     private String username;
     private String password;

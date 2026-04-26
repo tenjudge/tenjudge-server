@@ -1,8 +1,8 @@
 package io.github.yush1x.tenjudge.server.auth.service;
 
 import cn.dev33.satoken.secure.BCrypt;
-import io.github.yush1x.tenjudge.server.auth.dto.LoginRequestDTO;
-import io.github.yush1x.tenjudge.server.auth.dto.RegisterRequestDTO;
+import io.github.yush1x.tenjudge.server.auth.dto.LoginRequest;
+import io.github.yush1x.tenjudge.server.auth.dto.RegisterRequest;
 import io.github.yush1x.tenjudge.server.auth.entity.User;
 import io.github.yush1x.tenjudge.server.auth.persistence.UserQueryService;
 import io.github.yush1x.tenjudge.server.auth.persistence.UserUpdateService;
@@ -49,21 +49,21 @@ public class AuthService {
     }
 
     // 注册用户，返回id
-    public RegisterVO register(RegisterRequestDTO  registerRequestDTO) {
-        authRequestChecker.checkRegisterRequest(registerRequestDTO);
+    public RegisterVO register(RegisterRequest registerRequest) {
+        authRequestChecker.checkRegisterRequest(registerRequest);
 
         // 检查管理员注册权限
-        if ("admin".equals(registerRequestDTO.getRole()) || "super_admin".equals(registerRequestDTO.getRole())) {
+        if ("admin".equals(registerRequest.getRole()) || "super_admin".equals(registerRequest.getRole())) {
             authChecker.checkSuperAdmin();
         }
 
         // 密码加密
-        String password_hash = BCrypt.hashpw(registerRequestDTO.getPassword(), BCrypt.gensalt());
-        registerRequestDTO.setPassword(password_hash);
+        String password_hash = BCrypt.hashpw(registerRequest.getPassword(), BCrypt.gensalt());
+        registerRequest.setPassword(password_hash);
 
         RegisterVO registerVO = new RegisterVO();
         try {
-            registerVO.setId(userUpdateService.insert(registerRequestDTO));
+            registerVO.setId(userUpdateService.insert(registerRequest));
         } catch (Exception e) {
             throw new BizException(Code.REGISTER_FAILED);
         }
@@ -72,10 +72,10 @@ public class AuthService {
     }
 
     // 用户登录，返回token
-    public LoginVO login(LoginRequestDTO loginRequestDTO) {
+    public LoginVO login(LoginRequest loginRequest) {
 
-        String account = loginRequestDTO.getAccount();
-        String password = loginRequestDTO.getPassword();
+        String account = loginRequest.getAccount();
+        String password = loginRequest.getPassword();
         if (account == null || password == null) {
             throw new BizException(Code.LOGIN_FAILED);
         }

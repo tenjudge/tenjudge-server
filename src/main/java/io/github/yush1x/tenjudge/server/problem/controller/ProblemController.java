@@ -1,7 +1,7 @@
 package io.github.yush1x.tenjudge.server.problem.controller;
 
 import io.github.yush1x.tenjudge.server.common.Result;
-import io.github.yush1x.tenjudge.server.problem.dto.ProblemUpdateRequestDTO;
+import io.github.yush1x.tenjudge.server.problem.dto.ProblemUpdateRequest;
 import io.github.yush1x.tenjudge.server.problem.service.ProblemService;
 import io.github.yush1x.tenjudge.server.problem.vo.CreateProblemVO;
 import lombok.RequiredArgsConstructor;
@@ -21,8 +21,8 @@ public class ProblemController {
     }
 
     @PutMapping
-    public Result<Void> update(ProblemUpdateRequestDTO problemUpdateRequestDTO, MultipartFile zipFile) {
-        problemService.update(problemUpdateRequestDTO, zipFile);
+    public Result<Void> update(ProblemUpdateRequest problemUpdateRequest, MultipartFile zipFile) {
+        problemService.update(problemUpdateRequest, zipFile);
         return Result.success();
     }
 
