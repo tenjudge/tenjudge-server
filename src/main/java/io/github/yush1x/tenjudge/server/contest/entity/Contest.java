@@ -15,4 +15,5 @@ public class Contest {
     private LocalDateTime endTime;
     @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private LocalDateTime freezeTime;
+    private Integer penaltyPerWrong;
 }

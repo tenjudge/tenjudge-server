@@ -41,6 +41,7 @@ public class ContestService {
         contest.setStartTime(request.getStartTime());
         contest.setEndTime(request.getEndTime());
         contest.setFreezeTime(request.getFreezeTime());
+        contest.setPenaltyPerWrong(normalizePenaltyPerWrong(request.getPenaltyPerWrong()));
 
         Long contestId = contestUpdateService.insert(contest);
 
@@ -71,6 +72,8 @@ public class ContestService {
         contest.setEndTime(request.getEndTime());
         // freezeTime 允许为空，表示不封榜
         contest.setFreezeTime(request.getFreezeTime());
+        // penaltyPerWrong 前端允许不传，统一按 0 入库
+        contest.setPenaltyPerWrong(normalizePenaltyPerWrong(request.getPenaltyPerWrong()));
         contestUpdateService.update(contestId, contest);
 
         // 题目编排采用全量覆盖：先删旧数据，再插入新数据
@@ -112,5 +115,9 @@ public class ContestService {
             contestProblems.add(contestProblem);
         }
         return contestProblems;
+    }
+
+    private Integer normalizePenaltyPerWrong(Integer penaltyPerWrong) {
+        return penaltyPerWrong == null ? 0 : penaltyPerWrong;
     }
 }

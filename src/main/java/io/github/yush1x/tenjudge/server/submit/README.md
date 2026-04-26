@@ -12,6 +12,7 @@
 ## 数据存储
 ### PostgreSQL 数据库
 `submission` 表：
+添加了针对contest_id，submitter_id 和（contest_id，submitter_id）的索引，并做了对按提交时间倒序查询的优化
 ```
 id 提交编号（必填）
 type 任务类型（judge、hack、run、check）（必填）
@@ -24,20 +25,10 @@ status 测评状态（必填）
 time_used_ms 单测试点使用的最大时间，单位毫秒
 memory_used_mb 单测试点使用的最大峰值内存，单位MB
 info 整体的测评信息，如编译信息等
-
-CREATE TABLE submission (
-    id BIGSERIAL PRIMARY KEY,
-    type VARCHAR(32) NOT NULL,
-    problem_id BIGINT,
-    submitter_id BIGINT,
-    submit_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    contest_id BIGINT,
-    language VARCHAR(32) NOT NULL,
-    status VARCHAR(32) NOT NULL,
-    time_used_ms INTEGER,
-    memory_used_mb INTEGER,
-    info TEXT
-);
+索引：
+- `contest_id + submit_time DESC`：支持按比赛倒序查询提交
+- `submitter_id + submit_time DESC`：支持按提交者倒序查询提交
+- `contest_id + submitter_id + submit_time DESC`：支持按比赛内用户倒序查询提交
 ```
 
 `submission_detail` 表：
@@ -51,19 +42,7 @@ info 测评信息，如错误信息、编译信息等
 status 测评状态（同submission表）
 time_used_ms 测试点使用的时间，单位毫秒
 memory_used_mb 测试点使用的峰值内存，单位MB
-
-CREATE TABLE submission_detail (
-    submission_id BIGINT NOT NULL,
-    test_case_id INT NOT NULL,
-    input TEXT,
-    output TEXT,
-    answer TEXT,
-    info TEXT,
-    status VARCHAR(32) NOT NULL,
-    time_used_ms INTEGER,
-    memory_used_mb INTEGER,
-    PRIMARY KEY (submission_id, test_case_id)
-);
+主键：`submission_id + test_case_id`
 ```
 
 ### MinIO 对象存储

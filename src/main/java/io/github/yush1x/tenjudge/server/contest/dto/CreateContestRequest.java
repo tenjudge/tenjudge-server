@@ -10,4 +10,5 @@ public class CreateContestRequest {
     private LocalDateTime startTime;
     private LocalDateTime endTime;
     private LocalDateTime freezeTime;
+    private Integer penaltyPerWrong;
 }

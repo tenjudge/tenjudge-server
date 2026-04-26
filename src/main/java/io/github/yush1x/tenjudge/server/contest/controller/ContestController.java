@@ -21,13 +21,13 @@ public class ContestController {
     private final ContestService contestService;
 
     @PostMapping
-    @Operation(summary = "新建比赛", description = "创建比赛元数据，不包含比赛题目编排，时间使用 ISO 8601 格式 yyyy-MM-dd'T'HH:mm:ss")
+    @Operation(summary = "新建比赛", description = "创建比赛元数据，不包含比赛题目编排，时间使用 ISO 8601 格式 yyyy-MM-dd'T'HH:mm:ss，penaltyPerWrong 允许为空，后端会按 0 处理")
     public Result<CreateContestVO> create(@RequestBody CreateContestRequest request) {
         return Result.success(contestService.createContest(request));
     }
 
     @PutMapping
-    @Operation(summary = "更新比赛", description = "更新比赛元数据和比赛题目编排，题目列表采用全量覆盖策略，freezeTime 为空表示不封榜")
+    @Operation(summary = "更新比赛", description = "更新比赛元数据和比赛题目编排，题目列表采用全量覆盖策略，freezeTime 为空表示不封榜，penaltyPerWrong 允许为空，后端会按 0 处理")
     public Result<Void> update(@RequestBody UpdateContestRequest request) {
         contestService.updateContest(request);
         return Result.success();

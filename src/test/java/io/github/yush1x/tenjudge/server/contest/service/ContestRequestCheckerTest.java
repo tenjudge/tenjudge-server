@@ -29,6 +29,7 @@ class ContestRequestCheckerTest {
         request.setStartTime(LocalDateTime.of(2026, 4, 25, 18, 0));
         request.setEndTime(LocalDateTime.of(2026, 4, 25, 20, 0));
         request.setFreezeTime(LocalDateTime.of(2026, 4, 25, 19, 30));
+        request.setPenaltyPerWrong(20);
         return request;
     }
 
@@ -42,6 +43,8 @@ class ContestRequestCheckerTest {
                 Arguments.of("endTime null", (Consumer<CreateContestRequest>) req -> req.setEndTime(null), Code.CONTEST_REQUEST_INVALID),
                 Arguments.of("start equals end", (Consumer<CreateContestRequest>) req -> req.setEndTime(req.getStartTime()), Code.CONTEST_REQUEST_INVALID),
                 Arguments.of("freezeTime null", (Consumer<CreateContestRequest>) req -> req.setFreezeTime(null), null),
+                Arguments.of("penaltyPerWrong null", (Consumer<CreateContestRequest>) req -> req.setPenaltyPerWrong(null), null),
+                Arguments.of("penaltyPerWrong negative", (Consumer<CreateContestRequest>) req -> req.setPenaltyPerWrong(-1), Code.CONTEST_REQUEST_INVALID),
                 Arguments.of("freezeTime before start", (Consumer<CreateContestRequest>) req -> req.setFreezeTime(req.getStartTime().minusMinutes(1)), Code.CONTEST_REQUEST_INVALID),
                 Arguments.of("freezeTime after end", (Consumer<CreateContestRequest>) req -> req.setFreezeTime(req.getEndTime().plusMinutes(1)), Code.CONTEST_REQUEST_INVALID)
         );
@@ -54,6 +57,7 @@ class ContestRequestCheckerTest {
         request.setStartTime(LocalDateTime.of(2026, 4, 25, 18, 0));
         request.setEndTime(LocalDateTime.of(2026, 4, 25, 20, 0));
         request.setFreezeTime(LocalDateTime.of(2026, 4, 25, 19, 30));
+        request.setPenaltyPerWrong(20);
 
         ContestProblemDTO problemA = new ContestProblemDTO();
         problemA.setProblemId(1001L);
@@ -70,6 +74,8 @@ class ContestRequestCheckerTest {
                 Arguments.of("all valid", (Consumer<UpdateContestRequest>) req -> {}, null),
                 Arguments.of("contestId null", (Consumer<UpdateContestRequest>) req -> req.setContestId(null), Code.CONTEST_REQUEST_INVALID),
                 Arguments.of("freezeTime null", (Consumer<UpdateContestRequest>) req -> req.setFreezeTime(null), null),
+                Arguments.of("penaltyPerWrong null", (Consumer<UpdateContestRequest>) req -> req.setPenaltyPerWrong(null), null),
+                Arguments.of("penaltyPerWrong negative", (Consumer<UpdateContestRequest>) req -> req.setPenaltyPerWrong(-1), Code.CONTEST_REQUEST_INVALID),
                 Arguments.of("contestProblems null", (Consumer<UpdateContestRequest>) req -> req.setContestProblems(null), null),
                 Arguments.of("contestProblems empty", (Consumer<UpdateContestRequest>) req -> req.setContestProblems(new ArrayList<>()), null),
                 Arguments.of("contestProblem null", (Consumer<UpdateContestRequest>) req -> req.getContestProblems().set(0, null), Code.CONTEST_PROBLEM_INVALID),

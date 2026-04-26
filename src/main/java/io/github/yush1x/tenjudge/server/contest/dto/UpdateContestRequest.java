@@ -12,5 +12,6 @@ public class UpdateContestRequest {
     private LocalDateTime startTime;
     private LocalDateTime endTime;
     private LocalDateTime freezeTime;
+    private Integer penaltyPerWrong;
     private List<ContestProblemDTO> contestProblems;
 }

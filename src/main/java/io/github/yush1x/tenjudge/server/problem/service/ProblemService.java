@@ -59,6 +59,9 @@ public class ProblemService {
         Path dir = Path.of(tempDir, "problem", temp_uuid);
         try {
             fileService.unzip(file, dir);
+        } catch (BizException e) {
+            fileService.deleteDirectory(dir);
+            throw e;
         } catch (Exception e) {
             fileService.deleteDirectory(dir);
             throw new BizException(Code.UNZIP_FAILED);
@@ -160,6 +163,9 @@ public class ProblemService {
             Path dir = Path.of(tempDir, "problem", temp_uuid);
             try {
                 fileService.unzip(file, dir);
+            } catch (BizException e) {
+                fileService.deleteDirectory(dir);
+                throw e;
             } catch (Exception e) {
                 fileService.deleteDirectory(dir);
                 throw new BizException(Code.UNZIP_FAILED);

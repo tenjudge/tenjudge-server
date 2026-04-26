@@ -75,33 +75,14 @@ difficulty 难度，以cf分数形式
 problem_key MinIO存储中题目对应key（uuid）
 version 版本号，每次更新题面时递增
 test_case_num 测试点数量（按 input/i.in 与 answer/i.ans 同时连续存在统计）
-
-CREATE TABLE problem (
-    id BIGSERIAL PRIMARY KEY,
-    author_id BIGINT NOT NULL,
-    visibility VARCHAR(32) NOT NULL,
-    checker VARCHAR(32) NOT NULL,
-    time_limit INTEGER NOT NULL,
-    memory_limit INTEGER NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    statement TEXT NOT NULL,
-    solution TEXT,
-    difficulty INTEGER,
-    problem_key VARCHAR(255) NOT NULL,
-    version INTEGER NOT NULL,
-    test_case_num INTEGER NOT NULL
-);
 ```
 
 `problem_tag` 表：
 ```
-CREATE TABLE problem_tag (
-    problem_id BIGINT NOT NULL,
-    tag VARCHAR(64) NOT NULL,
-    PRIMARY KEY (problem_id, tag)
-);
-
-CREATE INDEX problem_tag_tag_key ON problem_tag(tag);
+problem_id 题目ID
+tag 题目标签
+主键：`problem_id + tag`
+索引：`tag`
 ```
 
 ### MinIO

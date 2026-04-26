@@ -58,19 +58,6 @@ max_rating 最高分数
 email 电子邮件地址，唯一，索引
 bio 个人简介
 solved_count 已解决题目数量
-
-CREATE TABLE users (
-    id BIGSERIAL PRIMARY KEY,
-    username VARCHAR(255) NOT NULL UNIQUE,
-    password VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    role VARCHAR(50) NOT NULL DEFAULT 'user',
-    rating INTEGER DEFAULT 0,
-    max_rating INTEGER DEFAULT 0,
-    email VARCHAR(255) NOT NULL UNIQUE,
-    bio TEXT,
-    solved_count INTEGER DEFAULT 0
-);
 ```
 
 ## 实现逻辑与方法

@@ -3,11 +3,13 @@ package io.github.yush1x.tenjudge.server.contest.service;
 import io.github.yush1x.tenjudge.server.auth.service.AuthService;
 import io.github.yush1x.tenjudge.server.common.Code;
 import io.github.yush1x.tenjudge.server.contest.dto.ContestProblemDTO;
+import io.github.yush1x.tenjudge.server.contest.dto.CreateContestRequest;
 import io.github.yush1x.tenjudge.server.contest.dto.UpdateContestRequest;
 import io.github.yush1x.tenjudge.server.contest.entity.Contest;
 import io.github.yush1x.tenjudge.server.contest.entity.ContestProblem;
 import io.github.yush1x.tenjudge.server.contest.persistence.ContestQueryService;
 import io.github.yush1x.tenjudge.server.contest.persistence.ContestUpdateService;
+import io.github.yush1x.tenjudge.server.contest.vo.CreateContestVO;
 import io.github.yush1x.tenjudge.server.exception.BizException;
 import io.github.yush1x.tenjudge.server.problem.persistence.ProblemQueryService;
 import org.junit.jupiter.api.Test;
@@ -22,6 +24,28 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ContestServiceTest {
+
+    @Test
+    void createContest_nullPenaltyPerWrong_defaultsToZero() {
+        RecordingContestUpdateService contestUpdateService = new RecordingContestUpdateService();
+        contestUpdateService.nextInsertedContestId = 7L;
+        ContestService contestService = new ContestService(
+                new StubAuthService(),
+                new ContestRequestChecker(),
+                contestUpdateService,
+                new StubContestQueryService(null),
+                new StubProblemQueryService(Set.of())
+        );
+
+        CreateContestRequest request = validCreateRequest();
+        request.setPenaltyPerWrong(null);
+
+        CreateContestVO result = contestService.createContest(request);
+
+        assertEquals(7L, result.getId());
+        assertNotNull(contestUpdateService.lastInsertedContest);
+        assertEquals(0, contestUpdateService.lastInsertedContest.getPenaltyPerWrong());
+    }
 
     @Test
     void updateContest_contestNotFound_throwsBizException() {
@@ -77,6 +101,7 @@ class ContestServiceTest {
         assertEquals(1, contestUpdateService.updateCallCount);
         assertNotNull(contestUpdateService.lastUpdatedContest);
         assertEquals("Weekly Round 1", contestUpdateService.lastUpdatedContest.getName());
+        assertEquals(20, contestUpdateService.lastUpdatedContest.getPenaltyPerWrong());
         assertEquals(1L, contestUpdateService.lastContestId);
         assertEquals(1, contestUpdateService.replaceCallCount);
         assertEquals(2, contestUpdateService.lastContestProblems.size());
@@ -108,6 +133,37 @@ class ContestServiceTest {
         assertEquals(0, contestUpdateService.lastContestProblems.size());
     }
 
+    @Test
+    void updateContest_nullPenaltyPerWrong_defaultsToZero() {
+        RecordingContestUpdateService contestUpdateService = new RecordingContestUpdateService();
+        Contest contest = new Contest();
+        contest.setId(1L);
+        UpdateContestRequest request = validUpdateRequest();
+        request.setPenaltyPerWrong(null);
+        ContestService contestService = new ContestService(
+                new StubAuthService(),
+                new ContestRequestChecker(),
+                contestUpdateService,
+                new StubContestQueryService(contest),
+                new StubProblemQueryService(Set.of(1001L, 1002L))
+        );
+
+        contestService.updateContest(request);
+
+        assertNotNull(contestUpdateService.lastUpdatedContest);
+        assertEquals(0, contestUpdateService.lastUpdatedContest.getPenaltyPerWrong());
+    }
+
+    private CreateContestRequest validCreateRequest() {
+        CreateContestRequest request = new CreateContestRequest();
+        request.setName("  Weekly Round 1  ");
+        request.setStartTime(LocalDateTime.of(2026, 4, 25, 18, 0));
+        request.setEndTime(LocalDateTime.of(2026, 4, 25, 20, 0));
+        request.setFreezeTime(LocalDateTime.of(2026, 4, 25, 19, 30));
+        request.setPenaltyPerWrong(20);
+        return request;
+    }
+
     private UpdateContestRequest validUpdateRequest() {
         UpdateContestRequest request = new UpdateContestRequest();
         request.setContestId(1L);
@@ -115,6 +171,7 @@ class ContestServiceTest {
         request.setStartTime(LocalDateTime.of(2026, 4, 25, 18, 0));
         request.setEndTime(LocalDateTime.of(2026, 4, 25, 20, 0));
         request.setFreezeTime(LocalDateTime.of(2026, 4, 25, 19, 30));
+        request.setPenaltyPerWrong(20);
 
         ContestProblemDTO problemA = new ContestProblemDTO();
         problemA.setProblemId(1001L);
@@ -168,14 +225,22 @@ class ContestServiceTest {
     }
 
     private static class RecordingContestUpdateService extends ContestUpdateService {
+        private Long nextInsertedContestId = 1L;
         private int updateCallCount;
         private int replaceCallCount;
         private Long lastContestId;
+        private Contest lastInsertedContest;
         private Contest lastUpdatedContest;
         private List<ContestProblem> lastContestProblems;
 
         RecordingContestUpdateService() {
             super(null, null);
+        }
+
+        @Override
+        public Long insert(Contest contest) {
+            lastInsertedContest = contest;
+            return nextInsertedContestId;
         }
 
         @Override

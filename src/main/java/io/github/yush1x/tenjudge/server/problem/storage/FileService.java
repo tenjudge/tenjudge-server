@@ -1,5 +1,7 @@
 package io.github.yush1x.tenjudge.server.problem.storage;
 
+import io.github.yush1x.tenjudge.server.common.Code;
+import io.github.yush1x.tenjudge.server.exception.BizException;
 import io.github.yush1x.tenjudge.server.problem.dto.ProblemConfig;
 import org.springframework.stereotype.Service;
 import org.springframework.util.FileSystemUtils;
@@ -35,10 +37,15 @@ public class FileService {
      * @throws IOException 解压到指定路径失败
      */
     public void unzip(MultipartFile file, Path destDir) throws IOException {
+        Path normalizedDestDir = destDir.toAbsolutePath().normalize();
         try (ZipInputStream zis = new ZipInputStream(file.getInputStream())) {
             ZipEntry entry;
             while ((entry = zis.getNextEntry()) != null) {
-                Path newPath = destDir.resolve(entry.getName());
+                Path newPath = normalizedDestDir.resolve(entry.getName()).normalize();
+                // zip 内部路径必须限制在当前临时目录下，防止通过 ../ 逃逸覆盖其他业务文件
+                if (!newPath.startsWith(normalizedDestDir)) {
+                    throw new BizException(Code.UNZIP_FAILED, "zip entry path is invalid");
+                }
 
                 if (entry.isDirectory()) {
                     Files.createDirectories(newPath);

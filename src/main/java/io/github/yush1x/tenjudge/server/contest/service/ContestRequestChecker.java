@@ -22,7 +22,8 @@ public class ContestRequestChecker {
         checkContestFields(request == null ? null : request.getName(),
                 request == null ? null : request.getStartTime(),
                 request == null ? null : request.getEndTime(),
-                request == null ? null : request.getFreezeTime());
+                request == null ? null : request.getFreezeTime(),
+                request == null ? null : request.getPenaltyPerWrong());
     }
 
     public void checkUpdateContestRequest(UpdateContestRequest request) {
@@ -34,11 +35,19 @@ public class ContestRequestChecker {
             throw new BizException(Code.CONTEST_REQUEST_INVALID, "contestId is required");
         }
 
-        checkContestFields(request.getName(), request.getStartTime(), request.getEndTime(), request.getFreezeTime());
+        checkContestFields(request.getName(),
+                request.getStartTime(),
+                request.getEndTime(),
+                request.getFreezeTime(),
+                request.getPenaltyPerWrong());
         checkContestProblems(request.getContestProblems());
     }
 
-    private void checkContestFields(String name, LocalDateTime startTime, LocalDateTime endTime, LocalDateTime freezeTime) {
+    private void checkContestFields(String name,
+                                    LocalDateTime startTime,
+                                    LocalDateTime endTime,
+                                    LocalDateTime freezeTime,
+                                    Integer penaltyPerWrong) {
         if (name == null || name.trim().isEmpty()) {
             throw new BizException(Code.CONTEST_REQUEST_INVALID, "contest name is required");
         }
@@ -56,6 +65,11 @@ public class ContestRequestChecker {
         // freezeTime 为空合法，表示不封榜；非空时必须落在比赛时间区间内
         if (freezeTime != null && (freezeTime.isBefore(startTime) || freezeTime.isAfter(endTime))) {
             throw new BizException(Code.CONTEST_REQUEST_INVALID, "freezeTime must be in [startTime, endTime]");
+        }
+
+        // 前端允许不传，service 会兜底为 0；显式传值时必须为非负数
+        if (penaltyPerWrong != null && penaltyPerWrong < 0) {
+            throw new BizException(Code.CONTEST_REQUEST_INVALID, "penaltyPerWrong must be >= 0");
         }
     }
 
