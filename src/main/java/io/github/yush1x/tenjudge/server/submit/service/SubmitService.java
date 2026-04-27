@@ -1,7 +1,8 @@
 package io.github.yush1x.tenjudge.server.submit.service;
 
 import io.github.yush1x.tenjudge.server.auth.service.AuthService;
-import io.github.yush1x.tenjudge.server.common.Language;
+import io.github.yush1x.tenjudge.server.common.Code;
+import io.github.yush1x.tenjudge.server.exception.BizException;
 import io.github.yush1x.tenjudge.server.problem.entity.Problem;
 import io.github.yush1x.tenjudge.server.problem.persistence.ProblemQueryService;
 import io.github.yush1x.tenjudge.server.problem.service.ProblemPermissionChecker;
@@ -24,16 +25,25 @@ public class SubmitService {
     private final Producer producer;
     private final ProblemPermissionChecker problemPermissionChecker;
     private final ProblemQueryService problemQueryService;
+    private final SubmitRequestChecker submitRequestChecker;
 
     @Transactional(rollbackFor = Exception.class)
     public void judge(JudgeRequest judgeRequest) {
-
-        // TODO 检查请求参数是否正确
-        // 考虑不要多次查询数据库拿题目信息
+        // 先拦截缺字段和非法枚举，避免后续鉴权、落库、对象存储链路处理脏请求。
+        submitRequestChecker.checkJudgeRequest(judgeRequest);
 
         Problem problem = problemQueryService.select(judgeRequest.getProblemId());
+        if (problem == null) {
+            throw new BizException(Code.PROBLEM_NOT_FOUND);
+        }
 
-        problemPermissionChecker.check(problem.getVisibility(), judgeRequest.getContestId(), judgeRequest.getIsAgent());
+        // 提交权限与普通访问权限分开处理，private 题提交必须额外满足报名限制。
+        problemPermissionChecker.checkSubmitPermission(
+                problem.getId(),
+                problem.getVisibility(),
+                judgeRequest.getContestId(),
+                judgeRequest.getIsAgent()
+        );
 
         Submission submission = Submission.builder()
                 .type("judge")

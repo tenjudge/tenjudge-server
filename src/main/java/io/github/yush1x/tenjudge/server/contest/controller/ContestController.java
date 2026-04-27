@@ -7,36 +7,132 @@ import io.github.yush1x.tenjudge.server.contest.dto.UpdateContestRequest;
 import io.github.yush1x.tenjudge.server.contest.service.ContestService;
 import io.github.yush1x.tenjudge.server.contest.vo.CreateContestVO;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/contest")
 @RequiredArgsConstructor
+@Tag(name = "Contest", description = "比赛管理与报名接口")
 public class ContestController {
 
     private final ContestService contestService;
 
     @PostMapping
-    @Operation(summary = "新建比赛", description = "创建比赛元数据，不包含比赛题目编排，时间使用 ISO 8601 格式 yyyy-MM-dd'T'HH:mm:ss，penaltyPerWrong 允许为空，后端会按 0 处理")
-    public Result<CreateContestVO> create(@RequestBody CreateContestRequest request) {
+    @Operation(
+        summary = "新建比赛",
+        description = "创建比赛元数据，不包含比赛题目编排。时间使用 ISO 8601 格式 yyyy-MM-dd'T'HH:mm:ss，"
+            + "freezeTime 为空表示不封榜，penaltyPerWrong 允许为空且后端会按 0 处理。",
+        operationId = "createContest"
+    )
+    public Result<CreateContestVO> create(
+        @org.springframework.web.bind.annotation.RequestBody
+        @RequestBody(
+            required = true,
+            description = "创建比赛请求体",
+            content = @Content(
+                schema = @Schema(implementation = CreateContestRequest.class),
+                examples = @ExampleObject(
+                    name = "创建比赛示例",
+                    value = """
+                            {
+                                "name": "TenJudge April Challenge",
+                                "startTime": "2026-05-01T13:00:00",
+                                "endTime": "2026-05-01T18:00:00",
+                                "freezeTime": "2026-05-01T17:00:00",
+                                "penaltyPerWrong": 20
+                            }
+                            """
+                )
+            )
+        )
+        @Parameter(description = "创建比赛请求")
+        CreateContestRequest request
+    ) {
         return Result.success(contestService.createContest(request));
     }
 
     @PutMapping
-    @Operation(summary = "更新比赛", description = "更新比赛元数据和比赛题目编排，题目列表采用全量覆盖策略，freezeTime 为空表示不封榜，penaltyPerWrong 允许为空，后端会按 0 处理")
-    public Result<Void> update(@RequestBody UpdateContestRequest request) {
+    @Operation(
+        summary = "更新比赛",
+        description = "更新比赛元数据和比赛题目编排。contestProblems 采用全量覆盖策略，"
+            + "freezeTime 为空表示不封榜，penaltyPerWrong 允许为空且后端会按 0 处理。",
+        operationId = "updateContest"
+    )
+    public Result<Void> update(
+        @org.springframework.web.bind.annotation.RequestBody
+        @RequestBody(
+            required = true,
+            description = "更新比赛请求体",
+            content = @Content(
+                schema = @Schema(implementation = UpdateContestRequest.class),
+                examples = @ExampleObject(
+                    name = "更新比赛与题目编排示例",
+                    value = """
+                            {
+                                "contestId": 2001,
+                                "name": "TenJudge April Challenge Finals",
+                                "startTime": "2026-05-01T13:00:00",
+                                "endTime": "2026-05-01T18:00:00",
+                                "freezeTime": "2026-05-01T17:00:00",
+                                "penaltyPerWrong": 20,
+                                "contestProblems": [
+                                    {
+                                        "problemId": 1001,
+                                        "problemIndex": "A"
+                                    },
+                                    {
+                                        "problemId": 1002,
+                                        "problemIndex": "B"
+                                    }
+                                ]
+                            }
+                            """
+                )
+            )
+        )
+        @Parameter(description = "更新比赛请求")
+        UpdateContestRequest request
+    ) {
         contestService.updateContest(request);
         return Result.success();
     }
 
     @PostMapping("/register")
-    @Operation(summary = "报名比赛", description = "用户通过当前登录态报名比赛，请求体只需传 contestId；只要比赛未结束即可报名，重复报名按幂等成功处理")
-    public Result<Void> register(@RequestBody RegisterContestRequest request) {
+    @Operation(
+        summary = "报名比赛",
+        description = "用户通过当前登录态报名比赛，请求体只需传 contestId。只要比赛未结束即可报名，重复报名按幂等成功处理。",
+        operationId = "registerContest"
+    )
+    public Result<Void> register(
+        @org.springframework.web.bind.annotation.RequestBody
+        @RequestBody(
+            required = true,
+            description = "报名比赛请求体",
+            content = @Content(
+                schema = @Schema(implementation = RegisterContestRequest.class),
+                examples = @ExampleObject(
+                    name = "报名比赛示例",
+                    value = """
+                            {
+                                "contestId": 2001
+                            }
+                            """
+                )
+            )
+        )
+        @Parameter(description = "报名比赛请求")
+        RegisterContestRequest request
+    ) {
         contestService.registerContest(request);
         return Result.success();
     }

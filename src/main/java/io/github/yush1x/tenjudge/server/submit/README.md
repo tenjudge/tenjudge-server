@@ -62,7 +62,7 @@ problem/<problem_key>/
 选手提交的代码会被存储在如下结构中：
 ```
 submission/<submission_id>/
-    code.(cpp/py/java)   # 选手提交的代码文件
+    code   # 当前实现固定使用该对象名，语言信息单独记录在 submission.language
 ```
 
 ## 实现细节
@@ -72,4 +72,7 @@ submission/<submission_id>/
 Agent 提交不会记录 submitter_id 或 contest_id
 contest_id 只有在比赛时间中且是参赛队员才会被记录，一旦记录就代表当前提交会被判定为比赛提交且记入榜单
 
-对于测评请求，若题目处于 contest 状态，则仅允许用户提交，**不允许非管理员用户的 Agent 提交**，防止选手通过Agent看到测评数据。
+对于测评请求：
+- `public` 题直接放行，不区分是否携带 `contestId`。
+- `private` 题仅允许在比赛进行中提交，且要求题目属于该比赛、当前用户已报名比赛。
+- 对于比赛中的 `private` 题，**不允许非管理员用户的 Agent 提交**，防止选手通过Agent看到测评数据。

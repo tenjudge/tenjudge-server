@@ -28,6 +28,8 @@ public enum Code {
     CONTEST_NOT_FOUND(30003, "contest not found"),
     CONTEST_ENDED(30004, "contest ended"),
 
+    SUBMIT_REQUEST_INVALID(40001, "submit request invalid"),
+
 
 
     SERVER_ERROR(1, "server error");
