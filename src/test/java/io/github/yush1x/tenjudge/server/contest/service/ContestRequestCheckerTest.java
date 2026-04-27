@@ -3,6 +3,7 @@ package io.github.yush1x.tenjudge.server.contest.service;
 import io.github.yush1x.tenjudge.server.common.Code;
 import io.github.yush1x.tenjudge.server.contest.dto.ContestProblemDTO;
 import io.github.yush1x.tenjudge.server.contest.dto.CreateContestRequest;
+import io.github.yush1x.tenjudge.server.contest.dto.RegisterContestRequest;
 import io.github.yush1x.tenjudge.server.contest.dto.UpdateContestRequest;
 import io.github.yush1x.tenjudge.server.exception.BizException;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -80,9 +81,24 @@ class ContestRequestCheckerTest {
                 Arguments.of("contestProblems empty", (Consumer<UpdateContestRequest>) req -> req.setContestProblems(new ArrayList<>()), null),
                 Arguments.of("contestProblem null", (Consumer<UpdateContestRequest>) req -> req.getContestProblems().set(0, null), Code.CONTEST_PROBLEM_INVALID),
                 Arguments.of("problemId null", (Consumer<UpdateContestRequest>) req -> req.getContestProblems().get(0).setProblemId(null), Code.CONTEST_PROBLEM_INVALID),
+                Arguments.of("duplicate problemId", (Consumer<UpdateContestRequest>) req -> req.getContestProblems().get(1).setProblemId(1001L), Code.CONTEST_PROBLEM_INVALID),
                 Arguments.of("problemIndex blank", (Consumer<UpdateContestRequest>) req -> req.getContestProblems().get(0).setProblemIndex("   "), Code.CONTEST_PROBLEM_INVALID),
                 Arguments.of("duplicate problemIndex", (Consumer<UpdateContestRequest>) req -> req.getContestProblems().get(1).setProblemIndex("A"), Code.CONTEST_PROBLEM_INVALID),
                 Arguments.of("problemIndex too long", (Consumer<UpdateContestRequest>) req -> req.getContestProblems().get(0).setProblemIndex("ABCDEFGHIJK"), Code.CONTEST_PROBLEM_INVALID)
+        );
+    }
+
+    private RegisterContestRequest validRegisterRequest() {
+        RegisterContestRequest request = new RegisterContestRequest();
+        request.setContestId(1L);
+        return request;
+    }
+
+    private static Stream<Arguments> registerContestCases() {
+        return Stream.of(
+                Arguments.of("all valid", (Consumer<RegisterContestRequest>) req -> {}, null),
+                Arguments.of("request null", null, Code.CONTEST_REQUEST_INVALID),
+                Arguments.of("contestId null", (Consumer<RegisterContestRequest>) req -> req.setContestId(null), Code.CONTEST_REQUEST_INVALID)
         );
     }
 
@@ -113,6 +129,27 @@ class ContestRequestCheckerTest {
         }
 
         BizException ex = assertThrows(BizException.class, () -> contestRequestChecker.checkUpdateContestRequest(request));
+        assertEquals(expectedCode, ex.getCode());
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("registerContestCases")
+    void checkRegisterContestRequest_cases(String caseName, Consumer<RegisterContestRequest> mutator, Code expectedCode) {
+        RegisterContestRequest request = validRegisterRequest();
+        if (mutator == null) {
+            request = null;
+        } else {
+            mutator.accept(request);
+        }
+
+        if (expectedCode == null) {
+            RegisterContestRequest finalRequest = request;
+            assertDoesNotThrow(() -> contestRequestChecker.checkRegisterContestRequest(finalRequest));
+            return;
+        }
+
+        RegisterContestRequest finalRequest = request;
+        BizException ex = assertThrows(BizException.class, () -> contestRequestChecker.checkRegisterContestRequest(finalRequest));
         assertEquals(expectedCode, ex.getCode());
     }
 }

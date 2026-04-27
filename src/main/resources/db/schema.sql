@@ -90,7 +90,18 @@ CREATE TABLE contest_problem (
     problem_id BIGINT NOT NULL,
     problem_index VARCHAR(10) NOT NULL,
 
-    CONSTRAINT uk_contest_problem_index UNIQUE (contest_id, problem_index)
+    CONSTRAINT uk_contest_problem_index UNIQUE (contest_id, problem_index),
+    CONSTRAINT uk_contest_problem_id UNIQUE (contest_id, problem_id)
 );
 
+CREATE TABLE contest_participant (
+    contest_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    username VARCHAR(255) NOT NULL,
+    solved_count INTEGER NOT NULL DEFAULT 0,
+    penalty INTEGER NOT NULL DEFAULT 0,
+    problem_results JSONB NOT NULL DEFAULT '{}'::jsonb,
+
+    PRIMARY KEY (contest_id, user_id)
+);
 

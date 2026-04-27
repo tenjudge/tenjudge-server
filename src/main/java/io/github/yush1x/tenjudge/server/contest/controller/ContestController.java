@@ -2,6 +2,7 @@ package io.github.yush1x.tenjudge.server.contest.controller;
 
 import io.github.yush1x.tenjudge.server.common.Result;
 import io.github.yush1x.tenjudge.server.contest.dto.CreateContestRequest;
+import io.github.yush1x.tenjudge.server.contest.dto.RegisterContestRequest;
 import io.github.yush1x.tenjudge.server.contest.dto.UpdateContestRequest;
 import io.github.yush1x.tenjudge.server.contest.service.ContestService;
 import io.github.yush1x.tenjudge.server.contest.vo.CreateContestVO;
@@ -30,6 +31,13 @@ public class ContestController {
     @Operation(summary = "更新比赛", description = "更新比赛元数据和比赛题目编排，题目列表采用全量覆盖策略，freezeTime 为空表示不封榜，penaltyPerWrong 允许为空，后端会按 0 处理")
     public Result<Void> update(@RequestBody UpdateContestRequest request) {
         contestService.updateContest(request);
+        return Result.success();
+    }
+
+    @PostMapping("/register")
+    @Operation(summary = "报名比赛", description = "用户通过当前登录态报名比赛，请求体只需传 contestId；只要比赛未结束即可报名，重复报名按幂等成功处理")
+    public Result<Void> register(@RequestBody RegisterContestRequest request) {
+        contestService.registerContest(request);
         return Result.success();
     }
 

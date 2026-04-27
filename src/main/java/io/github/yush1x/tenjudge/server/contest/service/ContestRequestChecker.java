@@ -3,6 +3,7 @@ package io.github.yush1x.tenjudge.server.contest.service;
 import io.github.yush1x.tenjudge.server.common.Code;
 import io.github.yush1x.tenjudge.server.contest.dto.ContestProblemDTO;
 import io.github.yush1x.tenjudge.server.contest.dto.CreateContestRequest;
+import io.github.yush1x.tenjudge.server.contest.dto.RegisterContestRequest;
 import io.github.yush1x.tenjudge.server.contest.dto.UpdateContestRequest;
 import io.github.yush1x.tenjudge.server.exception.BizException;
 import org.springframework.stereotype.Service;
@@ -43,6 +44,15 @@ public class ContestRequestChecker {
         checkContestProblems(request.getContestProblems());
     }
 
+    public void checkRegisterContestRequest(RegisterContestRequest request) {
+        if (request == null) {
+            throw new BizException(Code.CONTEST_REQUEST_INVALID, "request is null");
+        }
+        if (request.getContestId() == null) {
+            throw new BizException(Code.CONTEST_REQUEST_INVALID, "contestId is required");
+        }
+    }
+
     private void checkContestFields(String name,
                                     LocalDateTime startTime,
                                     LocalDateTime endTime,
@@ -81,13 +91,19 @@ public class ContestRequestChecker {
 
         // 同一场比赛内，题目标号必须唯一
         Set<String> usedIndexes = new HashSet<>();
+        // 同一场比赛内，同一道题只能出现一次，否则榜单和题目明细会失去唯一映射关系
+        Set<Long> usedProblemIds = new HashSet<>();
         for (int i = 0; i < contestProblems.size(); i++) {
             ContestProblemDTO contestProblem = contestProblems.get(i);
             if (contestProblem == null) {
                 throw new BizException(Code.CONTEST_PROBLEM_INVALID, "contestProblems[" + i + "] is null");
             }
-            if (contestProblem.getProblemId() == null) {
+            Long problemId = contestProblem.getProblemId();
+            if (problemId == null) {
                 throw new BizException(Code.CONTEST_PROBLEM_INVALID, "contestProblems[" + i + "].problemId is required");
+            }
+            if (!usedProblemIds.add(problemId)) {
+                throw new BizException(Code.CONTEST_PROBLEM_INVALID, "duplicate problemId: " + problemId);
             }
 
             String problemIndex = contestProblem.getProblemIndex();
