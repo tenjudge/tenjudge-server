@@ -1,9 +1,11 @@
 package io.github.yush1x.tenjudge.server.auth.service;
 
 import io.github.yush1x.tenjudge.server.auth.dto.RegisterRequest;
+import io.github.yush1x.tenjudge.server.auth.persistence.UserQueryService;
 import io.github.yush1x.tenjudge.server.auth.utils.Validator;
 import io.github.yush1x.tenjudge.server.common.Code;
 import io.github.yush1x.tenjudge.server.exception.BizException;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 
@@ -12,7 +14,10 @@ import org.springframework.stereotype.Service;
  */
 
 @Service
+@RequiredArgsConstructor
 public class AuthRequestChecker {
+
+    private final UserQueryService userQueryService;
 
     public void checkRegisterRequest(RegisterRequest registerRequest) {
         if (registerRequest.getUsername() == null || !Validator.isUsernameValid(registerRequest.getUsername())) {
@@ -26,6 +31,14 @@ public class AuthRequestChecker {
         }
         if (registerRequest.getRole() == null || !Validator.isRoleValid(registerRequest.getRole())) {
             throw new BizException(Code.ROLE_INVALID);
+        }
+
+        // 注册前先检查唯一字段，尽早给出明确业务错误，避免无意义的插库尝试。
+        if (userQueryService.selectByUsername(registerRequest.getUsername()) != null) {
+            throw new BizException(Code.USERNAME_ALREADY_EXISTS);
+        }
+        if (userQueryService.selectByEmail(registerRequest.getEmail()) != null) {
+            throw new BizException(Code.EMAIL_ALREADY_EXISTS);
         }
     }
 }

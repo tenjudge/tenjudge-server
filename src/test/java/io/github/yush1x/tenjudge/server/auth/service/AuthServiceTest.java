@@ -44,7 +44,7 @@ public class AuthServiceTest {
 
     @BeforeEach
     public void setUp() {
-        authService = new AuthService(authChecker, new AuthRequestChecker(), userUpdateService, userQueryService, stpService);
+        authService = new AuthService(authChecker, new AuthRequestChecker(userQueryService), userUpdateService, userQueryService, stpService);
     }
 
     private RegisterRequest validRegisterRequest(String role) {
@@ -141,6 +141,28 @@ public class AuthServiceTest {
         BizException ex = assertThrows(BizException.class, () -> authService.register(request));
 
         assertEquals(Code.REGISTER_FAILED, ex.getCode());
+    }
+
+    @Test
+    // 注册用户名重复时，抛出对应业务异常
+    public void register_usernameAlreadyExists_throwsBizException() {
+        RegisterRequest request = validRegisterRequest("user");
+        when(userQueryService.selectByUsername("test_user")).thenReturn(new User());
+
+        BizException ex = assertThrows(BizException.class, () -> authService.register(request));
+
+        assertEquals(Code.USERNAME_ALREADY_EXISTS, ex.getCode());
+    }
+
+    @Test
+    // 注册邮箱重复时，抛出对应业务异常
+    public void register_emailAlreadyExists_throwsBizException() {
+        RegisterRequest request = validRegisterRequest("user");
+        when(userQueryService.selectByEmail("test@example.com")).thenReturn(new User());
+
+        BizException ex = assertThrows(BizException.class, () -> authService.register(request));
+
+        assertEquals(Code.EMAIL_ALREADY_EXISTS, ex.getCode());
     }
 
     @Test

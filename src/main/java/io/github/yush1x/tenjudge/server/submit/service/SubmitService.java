@@ -6,7 +6,7 @@ import io.github.yush1x.tenjudge.server.exception.BizException;
 import io.github.yush1x.tenjudge.server.problem.entity.Problem;
 import io.github.yush1x.tenjudge.server.problem.persistence.ProblemQueryService;
 import io.github.yush1x.tenjudge.server.problem.service.ProblemPermissionChecker;
-import io.github.yush1x.tenjudge.server.problem.storage.MinioService;
+import io.github.yush1x.tenjudge.server.infra.MinioService;
 import io.github.yush1x.tenjudge.server.submit.dto.JudgeRequest;
 import io.github.yush1x.tenjudge.server.submit.entity.Submission;
 import io.github.yush1x.tenjudge.server.submit.mq.Producer;

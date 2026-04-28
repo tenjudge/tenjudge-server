@@ -18,6 +18,7 @@ import io.github.yush1x.tenjudge.server.contest.persistence.ContestQueryService;
 import io.github.yush1x.tenjudge.server.contest.persistence.ContestUpdateService;
 import io.github.yush1x.tenjudge.server.contest.vo.CreateContestVO;
 import io.github.yush1x.tenjudge.server.exception.BizException;
+import io.github.yush1x.tenjudge.server.problem.entity.Problem;
 import io.github.yush1x.tenjudge.server.problem.persistence.ProblemQueryService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,7 +28,6 @@ import org.springframework.dao.DuplicateKeyException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -109,7 +109,7 @@ class ContestServiceTest {
         Contest contest = new Contest();
         contest.setId(1L);
         when(contestQueryService.select(1L)).thenReturn(contest);
-        when(problemQueryService.selectExistingIds(anyCollection())).thenReturn(Set.of(1001L));
+        when(problemQueryService.selectByIds(anyCollection())).thenReturn(List.of(problem(1001L)));
 
         BizException ex = assertThrows(BizException.class, () -> contestService.updateContest(validUpdateRequest()));
 
@@ -123,7 +123,7 @@ class ContestServiceTest {
         Contest contest = new Contest();
         contest.setId(1L);
         when(contestQueryService.select(1L)).thenReturn(contest);
-        when(problemQueryService.selectExistingIds(anyCollection())).thenReturn(Set.of(1001L, 1002L));
+        when(problemQueryService.selectByIds(anyCollection())).thenReturn(List.of(problem(1001L), problem(1002L)));
 
         contestService.updateContest(validUpdateRequest());
 
@@ -151,8 +151,6 @@ class ContestServiceTest {
         UpdateContestRequest request = validUpdateRequest();
         request.setContestProblems(new ArrayList<>());
         when(contestQueryService.select(1L)).thenReturn(contest);
-        when(problemQueryService.selectExistingIds(anyCollection())).thenReturn(Set.of());
-
         contestService.updateContest(request);
 
         ArgumentCaptor<List<ContestProblem>> contestProblemsCaptor = ArgumentCaptor.forClass(List.class);
@@ -167,7 +165,7 @@ class ContestServiceTest {
         UpdateContestRequest request = validUpdateRequest();
         request.setPenaltyPerWrong(null);
         when(contestQueryService.select(1L)).thenReturn(contest);
-        when(problemQueryService.selectExistingIds(anyCollection())).thenReturn(Set.of(1001L, 1002L));
+        when(problemQueryService.selectByIds(anyCollection())).thenReturn(List.of(problem(1001L), problem(1002L)));
 
         contestService.updateContest(request);
 
@@ -265,6 +263,12 @@ class ContestServiceTest {
         request.setFreezeTime(LocalDateTime.of(2026, 4, 25, 19, 30));
         request.setPenaltyPerWrong(20);
         return request;
+    }
+
+    private Problem problem(Long id) {
+        Problem problem = new Problem();
+        problem.setId(id);
+        return problem;
     }
 
     private UpdateContestRequest validUpdateRequest() {

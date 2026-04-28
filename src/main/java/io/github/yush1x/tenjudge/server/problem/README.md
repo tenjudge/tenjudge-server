@@ -1,12 +1,5 @@
 # Problem 题目模块
 
-## 开发进度
-- [x] 新建导入题目
-- [x] 更新题目数据
-
-### 待升级部分
-- 题面 md 文件支持图片元素
-
 ## 业务说明
 
 ### 新建/修改题目
@@ -59,7 +52,8 @@ tags:
     - 提交：除访问条件外，还要求用户已经报名比赛。
   - 对于普通用户，比赛中的 private 题不允许 Agent 访问或提交。
   - 其余情况仅允许管理员访问
-题目查询操作对于非管理员，若题目为比赛上下文中的 private 题，则会默认过滤掉部分字段
+题目查询操作对于非管理员，若题目为比赛上下文中的 private 题，则只返回做题必需字段：`id`、`checker`、`timeLimit`、`memoryLimit`、`name`、`statement`，其余字段（如 `authorId`、`visibility`、`solution`、`difficulty`、`version`、`tags`）默认不返回
+- Agent 查看题目使用独立接口 `/agent/problem/{id}`，与普通用户的 `/problem/{id}` 不共用调用入口，但复用同一套后端鉴权与权限校验逻辑。
 
 ## 数据存储
 
@@ -108,6 +102,7 @@ problem/<problem_key>/
 ### Redis
 ```
 lock:problem:{problemId}  题目的读写锁
+contest_problem:contest:{contestId}  比赛题目编排缓存，值为整场比赛的 ContestProblemDTO 列表
 ```
 
 ## 业务实现
@@ -136,6 +131,11 @@ lock:problem:{problemId}  题目的读写锁
 
 ### 题目访问权限检查
 具体实现在 `ProblemPermissionChecker` 类中
+
+### 比赛内按题号查题
+- `queryInContest` 不直接信任前端传入的题目 ID，而是先根据 `contestId + problemIndex` 查询 `contest_problem` 表。
+- 查询结果会按比赛维度缓存到 Redis，缓存整场比赛的题目编排列表，减少比赛中频繁按题号访问时对数据库的重复读取。
+- 若比赛题目编排更新，必须由比赛模块在事务提交后失效对应缓存，避免旧编排在并发场景下被重新写回。
 
 - 对于超级管理员和管理员，直接放行。
 - 对于普通用户：

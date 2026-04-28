@@ -14,6 +14,8 @@ public enum Code {
     ROLE_INVALID(10006, "role is invalid"),
     REGISTER_FAILED(10007, "register failed"),
     LOGIN_FAILED(10008, "login failed"),
+    USERNAME_ALREADY_EXISTS(10009, "username already exists"),
+    EMAIL_ALREADY_EXISTS(10010, "email already exists"),
 
     UNZIP_FAILED(20001, "unzip failed"),
     CONFIG_FILE_INVALID(20002, "config file invalid"),

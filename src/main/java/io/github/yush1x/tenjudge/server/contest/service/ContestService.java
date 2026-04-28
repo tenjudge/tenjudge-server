@@ -16,6 +16,7 @@ import io.github.yush1x.tenjudge.server.contest.persistence.ContestParticipantUp
 import io.github.yush1x.tenjudge.server.contest.persistence.ContestProblemUpdateService;
 import io.github.yush1x.tenjudge.server.contest.persistence.ContestQueryService;
 import io.github.yush1x.tenjudge.server.contest.persistence.ContestUpdateService;
+import io.github.yush1x.tenjudge.server.problem.entity.Problem;
 import io.github.yush1x.tenjudge.server.contest.vo.CreateContestVO;
 import io.github.yush1x.tenjudge.server.exception.BizException;
 import io.github.yush1x.tenjudge.server.problem.persistence.ProblemQueryService;
@@ -44,17 +45,20 @@ public class ContestService {
     private final ContestParticipantQueryService contestParticipantQueryService;
     private final ContestParticipantUpdateService contestParticipantUpdateService;
 
+
+    // 创建比赛
     @Transactional(rollbackFor = Exception.class)
     public CreateContestVO createContest(CreateContestRequest request) {
         authService.checkAdmin();
         contestRequestChecker.checkCreateContestRequest(request);
 
-        Contest contest = new Contest();
-        contest.setName(request.getName().trim());
-        contest.setStartTime(request.getStartTime());
-        contest.setEndTime(request.getEndTime());
-        contest.setFreezeTime(request.getFreezeTime());
-        contest.setPenaltyPerWrong(normalizePenaltyPerWrong(request.getPenaltyPerWrong()));
+        Contest contest = Contest.builder()
+                .name(request.getName().trim())
+                .startTime(request.getStartTime())
+                .endTime(request.getEndTime())
+                .freezeTime(request.getFreezeTime())
+                .penaltyPerWrong(request.getPenaltyPerWrong() == null ? 0 : request.getPenaltyPerWrong())
+                .build();
 
         Long contestId = contestUpdateService.insert(contest);
 
@@ -64,6 +68,7 @@ public class ContestService {
         return createContestVO;
     }
 
+    // 更新比赛信息
     @Transactional(rollbackFor = Exception.class)
     public void updateContest(UpdateContestRequest request) {
         authService.checkAdmin();
@@ -76,64 +81,48 @@ public class ContestService {
         }
 
         List<ContestProblemDTO> requestProblems = request.getContestProblems();
-        // 先校验题目真实存在，避免主表已更新但题目编排非法
-        validateProblemIdsExist(requestProblems);
+        List<ContestProblem> contestProblems = new ArrayList<>();
+        if (requestProblems != null && !requestProblems.isEmpty()) {
+            Set<Long> problemIds = new HashSet<>();
+            for (ContestProblemDTO requestProblem : requestProblems) {
+                problemIds.add(requestProblem.getProblemId());
 
-        Contest contest = new Contest();
-        contest.setName(request.getName().trim());
-        contest.setStartTime(request.getStartTime());
-        contest.setEndTime(request.getEndTime());
-        // freezeTime 允许为空，表示不封榜
-        contest.setFreezeTime(request.getFreezeTime());
-        // penaltyPerWrong 前端允许不传，统一按 0 入库
-        contest.setPenaltyPerWrong(normalizePenaltyPerWrong(request.getPenaltyPerWrong()));
-        contestUpdateService.update(contestId, contest);
+                contestProblems.add(ContestProblem.builder()
+                        .contestId(contestId)
+                        .problemId(requestProblem.getProblemId())
+                        .problemIndex(requestProblem.getProblemIndex().trim())
+                        .build());
+            }
 
-        // 题目编排采用全量覆盖：先删旧数据，再插入新数据
-        contestProblemUpdateService.replaceByContestId(contestId, buildContestProblems(contestId, requestProblems));
-    }
-
-    private void validateProblemIdsExist(List<ContestProblemDTO> requestProblems) {
-        if (requestProblems == null || requestProblems.isEmpty()) {
-            return;
-        }
-
-        // 先去重，避免重复查询同一个 problemId
-        Set<Long> problemIds = new HashSet<>();
-        for (ContestProblemDTO requestProblem : requestProblems) {
-            problemIds.add(requestProblem.getProblemId());
-        }
-
-        // 批量查询数据库中真实存在的题目
-        Set<Long> existingProblemIds = problemQueryService.selectExistingIds(problemIds);
-        for (Long problemId : problemIds) {
-            if (!existingProblemIds.contains(problemId)) {
-                throw new BizException(Code.CONTEST_PROBLEM_INVALID, "problemId not found: " + problemId);
+            // 先校验题目真实存在，避免主表已更新但题目编排非法
+            List<Problem> existingProblems = problemQueryService.selectByIds(problemIds);
+            if (existingProblems.size() != problemIds.size()) {
+                Set<Long> existingProblemIds = new HashSet<>();
+                for (Problem existingProblem : existingProblems) {
+                    existingProblemIds.add(existingProblem.getId());
+                }
+                for (ContestProblemDTO requestProblem : requestProblems) {
+                    Long problemId = requestProblem.getProblemId();
+                    if (!existingProblemIds.contains(problemId)) {
+                        throw new BizException(Code.CONTEST_PROBLEM_INVALID, "problemId not found: " + problemId);
+                    }
+                }
             }
         }
+
+        Contest contest = Contest.builder()
+                .name(request.getName().trim())
+                .startTime(request.getStartTime())
+                .endTime(request.getEndTime())
+                .freezeTime(request.getFreezeTime()) // freezeTime 允许为空，表示不封榜
+                .penaltyPerWrong(request.getPenaltyPerWrong() == null ? 0 : request.getPenaltyPerWrong()) // penaltyPerWrong 前端允许不传，统一按 0 入库
+                .build();
+        contestUpdateService.update(contestId, contest);
+
+        contestProblemUpdateService.replaceByContestId(contestId, contestProblems); // 题目编排采用全量覆盖：先删旧数据，再插入新数据
     }
 
-    private List<ContestProblem> buildContestProblems(Long contestId, List<ContestProblemDTO> requestProblems) {
-        List<ContestProblem> contestProblems = new ArrayList<>();
-        if (requestProblems == null || requestProblems.isEmpty()) {
-            return contestProblems;
-        }
-
-        // DTO 转实体，统一挂到当前比赛下
-        for (ContestProblemDTO requestProblem : requestProblems) {
-            ContestProblem contestProblem = new ContestProblem();
-            contestProblem.setContestId(contestId);
-            contestProblem.setProblemId(requestProblem.getProblemId());
-            contestProblem.setProblemIndex(requestProblem.getProblemIndex().trim());
-            contestProblems.add(contestProblem);
-        }
-        return contestProblems;
-    }
-
-    private Integer normalizePenaltyPerWrong(Integer penaltyPerWrong) {
-        return penaltyPerWrong == null ? 0 : penaltyPerWrong;
-    }
-
+    // 报名比赛
     @Transactional(rollbackFor = Exception.class)
     public void registerContest(RegisterContestRequest request) {
         Long userId = authService.checkLogin();

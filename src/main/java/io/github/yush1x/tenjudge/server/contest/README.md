@@ -54,3 +54,15 @@ solved_count 过题数
 penalty 罚时
 problem_results 榜单题目结果快照，jsonb 类型，使用 problemId 作为 key，value 包含 accepted、acceptedAt、wrongAttemptsBeforeAc
 ```
+
+## Redis
+```
+contest_problem:contest:{contestId}  整场比赛的题目编排缓存，值为 ContestProblemDTO 列表
+```
+
+## 实现说明
+
+### 题目编排缓存一致性
+- `problem/queryInContest` 会先通过 `contest_problem` 将 `problemIndex` 映射为真实 `problemId`，再进入题目查询流程。
+- 该题目编排列表按比赛维度缓存到 Redis，降低比赛中按题号查题时的数据库压力。
+- `contestProblems` 更新采用全量覆盖，因此写入链路必须在事务提交后失效 `contest_problem:contest:{contestId}`，避免旧编排在事务未提交时被并发查询重新回填。

@@ -1,11 +1,18 @@
 package io.github.yush1x.tenjudge.server.auth.service;
 
 import io.github.yush1x.tenjudge.server.auth.dto.RegisterRequest;
+import io.github.yush1x.tenjudge.server.auth.entity.User;
+import io.github.yush1x.tenjudge.server.auth.persistence.UserQueryService;
 import io.github.yush1x.tenjudge.server.common.Code;
 import io.github.yush1x.tenjudge.server.exception.BizException;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -13,10 +20,20 @@ import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.when;
 
+@ExtendWith(MockitoExtension.class)
 class AuthRequestCheckerTest {
 
-    private final AuthRequestChecker authRequestChecker = new AuthRequestChecker();
+    @Mock
+    private UserQueryService userQueryService;
+
+    private AuthRequestChecker authRequestChecker;
+
+    @BeforeEach
+    void setUp() {
+        authRequestChecker = new AuthRequestChecker(userQueryService);
+    }
 
     private RegisterRequest validRequest() {
         RegisterRequest dto = new RegisterRequest();
@@ -57,5 +74,25 @@ class AuthRequestCheckerTest {
 
         BizException ex = assertThrows(BizException.class, () -> authRequestChecker.checkRegisterRequest(dto));
         assertEquals(expectedCode, ex.getCode());
+    }
+
+    @Test
+    void checkRegisterRequest_usernameAlreadyExists_throwsBizException() {
+        RegisterRequest dto = validRequest();
+        when(userQueryService.selectByUsername(dto.getUsername())).thenReturn(new User());
+
+        BizException ex = assertThrows(BizException.class, () -> authRequestChecker.checkRegisterRequest(dto));
+
+        assertEquals(Code.USERNAME_ALREADY_EXISTS, ex.getCode());
+    }
+
+    @Test
+    void checkRegisterRequest_emailAlreadyExists_throwsBizException() {
+        RegisterRequest dto = validRequest();
+        when(userQueryService.selectByEmail(dto.getEmail())).thenReturn(new User());
+
+        BizException ex = assertThrows(BizException.class, () -> authRequestChecker.checkRegisterRequest(dto));
+
+        assertEquals(Code.EMAIL_ALREADY_EXISTS, ex.getCode());
     }
 }

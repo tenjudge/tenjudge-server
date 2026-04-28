@@ -7,8 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.Collection;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -22,15 +21,10 @@ public class ProblemQueryService {
         return problemMapper.selectOne(wrapper);
     }
 
-    public Set<Long> selectExistingIds(Collection<Long> ids) {
+    public List<Problem> selectByIds(Collection<Long> ids) {
         if (ids == null || ids.isEmpty()) {
-            return Set.of();
+            return List.of();
         }
-
-        Set<Long> existingIds = new HashSet<>();
-        for (Problem problem : problemMapper.selectBatchIds(ids)) {
-            existingIds.add(problem.getId());
-        }
-        return existingIds;
+        return problemMapper.selectByIds(ids);
     }
 }

@@ -10,7 +10,7 @@
 
 ### 1.1 通用开发规范
 
-- 这份文档偏向给 AI 代理的改码规约。代理在动手前必须先确认改动位于哪个模块、会经过哪些 `service` / `persistence` / `storage` / `mq` 链路，再决定修改位置。
+- 这份文档偏向给 AI 代理的改码规约。代理在动手前必须先确认改动位于哪个模块、会经过哪些 `service` / `persistence` / `infra` / `storage` / `mq` 链路，再决定修改位置。
 - 遵循项目现有的代码风格、命名规则、目录结构和模块划分方式，不要随意引入新的架构模式或抽象方式。
 - 优先复用项目中已有的工具函数、服务、组件、错误处理方式和响应格式。
 - 除非有明确必要性并说明原因，否则不要引入新的第三方依赖。
@@ -24,6 +24,7 @@
 
 - 不要求为每次小改动强行补注释，但涉及业务规则、权限边界、锁、回滚、对象存储、消息投递时，应优先补充注释。
 - 注释应说明“为什么这样做”和“对应什么业务约束”，避免复述代码字面意思。
+- 若注释只针对单行代码，统一使用行末注释。
 - 已有注释若与代码行为不一致，修改代码时应一并修正。
 
 ### 1.3 文档同步规范
@@ -42,6 +43,7 @@
 - 更新面向开发者或使用者的项目说明和业务背景。
 - 包括但不限于：业务规则、架构设计、核心流程、重要实现细节、数据库结构、配置项、部署方式、接口说明、使用示例和常见问题。
 - 当本次改动影响系统行为、对外能力、配置方式、数据模型、接口契约或运行方式时，应同步更新。
+- 若改动不影响核心业务流程、对外能力、接口契约、配置方式、数据模型或其他关键约定，而只是内部实现整理、局部重构、命名调整、目录调整、包路径变更、基础设施类归位等次要改动，默认只更新 `AGENTS.md`，不要求同步修改 `README.md`。
 - 确保 README 中的说明与当前代码实现一致，避免保留过期描述。
 - 数据库建表语句统一维护在 `src/main/resources/db/schema.sql`，各模块 README 只保留文字说明；后续修改数据库结构时，必须同步更新对应 README 与该 SQL 文件。
 
@@ -56,9 +58,11 @@
 - 未预期异常应上抛给 `GlobalExceptionHandler` 兜底，不要在业务代码中随意 catch 后改造成无语义的成功返回。
 - 当前全局异常规范保持现状：`BizException` 统一返回业务码与业务消息，其他异常统一记为系统异常并返回 `Code.SERVER_ERROR`。后续不要再扩展额外异常处理分支。
 - 若前端需要更具体的错误提示，应优先使用 `new BizException(code, message)`，而不是新增零散返回格式。
+- 异常与日志文案统一语言约定：`BizException` 的 `message` 一律使用英文；`RuntimeException` 及其他非业务异常的异常消息，以及直接写入日志的 `msg` / `message`，一律使用中文。
 - `AuthService` 是统一鉴权入口。需要登录、管理员、超级管理员校验时，优先复用 `checkLogin()`、`checkAdmin()`、`checkSuperAdmin()`。
 - Agent 请求与用户请求复用同一套后端鉴权逻辑，但不能因此绕过业务侧的 Agent 限制。涉及比赛题目和提交时，必须额外关注 `isAgent` 分支。
 - 涉及数据库、对象存储、消息队列、分布式锁的逻辑时，优先在 `service` 层完成业务编排，不要把这类逻辑下沉到 `controller`。
+- 跨模块复用的基础设施能力统一优先放在 `infra` 包，例如 MinIO、后续公共 Redis/锁封装；模块内 `storage` 包只保留仍带有明确业务边界的本地文件处理或存储辅助逻辑。
 - `persistence` 层的写入职责默认按表拆分。单个 `*UpdateService` 应只负责一张主表或一类明确边界的关系表写入；若同时操作多张表，应拆成独立类，由 `service` 层负责统一编排，不要把多表写入逻辑长期混在同一个 persistence 服务里。
 - 修改 `problem` 和 `submit` 模块时，不能只看数据库，还要同时检查 MinIO、Redis 锁、RabbitMQ 发送链路是否保持一致性。
 
@@ -67,11 +71,12 @@
 ### 2.1 目录结构
 
 - `src/main/java/io/github/yush1x/tenjudge/server/auth`：认证、登录、注册、角色与权限检查。
-- `src/main/java/io/github/yush1x/tenjudge/server/problem`：题目导入、更新、对象存储、权限与文件校验。
+- `src/main/java/io/github/yush1x/tenjudge/server/problem`：题目导入、更新、权限、题目文件校验与本地临时文件处理。
 - `src/main/java/io/github/yush1x/tenjudge/server/contest`：比赛元数据与题目编排。
 - `src/main/java/io/github/yush1x/tenjudge/server/submit`：提交落库、代码上传、消息投递。
 - `src/main/java/io/github/yush1x/tenjudge/server/common`：通用返回、错误码、枚举。
 - `src/main/java/io/github/yush1x/tenjudge/server/config`：基础设施配置。
+- `src/main/java/io/github/yush1x/tenjudge/server/infra`：跨模块复用的基础设施封装，如对象存储等。
 - `src/main/java/io/github/yush1x/tenjudge/server/exception`：业务异常和全局异常处理。
 - `src/main/resources`：应用配置、日志配置、mapper XML。
 
@@ -84,7 +89,8 @@
 - `entity`：数据库实体。
 - `dto`：请求对象及少量模块内部传输结构。
 - `vo`：返回前端的数据结构。
-- `storage`：文件系统与 MinIO 交互。
+- `infra`：跨模块基础设施能力封装，如 MinIO、后续公共 Redis/锁能力。
+- `storage`：模块内文件系统、本地临时目录和业务专属存储辅助逻辑。
 
 ### 2.3 重要文件
 
@@ -92,8 +98,10 @@
 - `common/Code.java`：统一业务错误码枚举。新增业务失败类型时先补这里，再抛 `BizException`。
 - `exception/BizException.java`：业务异常载体。
 - `exception/GlobalExceptionHandler.java`：统一异常出口。Controller 不应绕过它自行返回异常格式。
+- `infra/MinioService.java`：跨模块复用的 MinIO 对象存储封装。
 - `auth/service/AuthService.java`：统一鉴权能力入口。
 - `problem/service/ProblemService.java`：题目导入、更新、锁与对象存储一致性核心。
+- `problem/storage/FileService.java`：题目 zip、本地临时目录和文本文件处理。
 - `problem/service/ProblemRequestChecker.java`：题目 zip 内容与配置校验规则。
 - `problem/service/ProblemPermissionChecker.java`：题目可见性与比赛访问边界。
 - `contest/service/ContestRequestChecker.java`：比赛请求字段与题目编排校验。
@@ -126,6 +134,7 @@
 - 创建和更新比赛前都应先走 `ContestRequestChecker`，保持时间字段和题目编排规则一致。
 - `contest.penalty_per_wrong` 为数据库非空字段，默认值为 `0`；请求中的 `penaltyPerWrong` 允许为空，但 service 入库前必须兜底写成 `0`。
 - `contestProblems` 当前采用全量覆盖策略，修改更新逻辑时不要误改成局部 patch 行为，除非同步更新文档和接口约定。
+- `problem/queryInContest` 会通过 Redis 缓存整场比赛的题目编排列表（包含 `problemId` 与 `problemIndex`）；修改 `contest_problem` 写入链路时，必须同步处理该缓存，并在事务提交后失效，避免旧编排被并发读请求回填。
 - 比赛题目编排依赖题目真实存在性校验，不能只依赖数据库约束兜底；同一场比赛内 `problemId` 和 `problemIndex` 都必须唯一。
 - `contest_participant.problem_results` 使用 `problemId` 作为 `jsonb` key；修改榜单聚合逻辑时，需同时保证 Java 强类型结构与 PostgreSQL 存储结构一致。
 

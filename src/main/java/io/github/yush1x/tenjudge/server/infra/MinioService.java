@@ -1,4 +1,4 @@
-package io.github.yush1x.tenjudge.server.problem.storage;
+package io.github.yush1x.tenjudge.server.infra;
 
 import io.minio.*;
 import io.minio.http.Method;

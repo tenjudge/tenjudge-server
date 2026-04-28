@@ -23,6 +23,12 @@ public class ProblemPermissionChecker {
     private final ContestProblemQueryService contestProblemQueryService;
     private final ContestParticipantQueryService contestParticipantQueryService;
 
+    // 在验证过是否有访问题目权限后，判断是否有访问完整题面的权限
+    public boolean hasFullAccess(String visibility) {
+        Long userId = authService.checkLogin();
+        return isAdmin(userId) || "public".equals(visibility);
+    }
+
     public void checkAccessPermission(Long problemId, String visibility, Long contestId, Boolean isAgent) {
         Long userId = authService.checkLogin();
         if (isAdmin(userId)) {

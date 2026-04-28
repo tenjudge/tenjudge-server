@@ -6,6 +6,8 @@ import io.github.yush1x.tenjudge.server.contest.mapper.ContestProblemMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class ContestProblemQueryService {
@@ -17,5 +19,11 @@ public class ContestProblemQueryService {
         wrapper.eq(ContestProblem::getContestId, contestId)
                 .eq(ContestProblem::getProblemId, problemId);
         return contestProblemMapper.selectCount(wrapper) > 0;
+    }
+
+    public List<ContestProblem> selectByContestId(Long contestId) {
+        LambdaQueryWrapper<ContestProblem> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(ContestProblem::getContestId, contestId);
+        return contestProblemMapper.selectList(wrapper);
     }
 }
