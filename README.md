@@ -21,11 +21,16 @@ Java 21、Spring Boot 4、Maven、MyBatis-Plus、PostgreSQL、Redis、Redisson�
 用于角色缓存、分布式锁相关能力以及登录态相关能力。
 
 当前业务代码中显式使用的 key 包括：
+
+缓存相关：
 - `user:role:{userId}` 用于用户角色缓存
+- `problem:{problemId}` 用于Problem表的缓存
+- `problem_tags:{problemId}` 用于查询一个题目所有tag的缓存
+- 
+锁相关：
 - `lock:problem:{problemId}` 用于题目数据更新的分布式读写锁
 - `lock:cache:{cacheKey}` 用于防止缓存击穿的分布式锁
-- `problem:{problemId}` 用于Problem表的缓存
-- `problem_tags:{problemId}` 用于插叙一个题目所有tag的缓存
+
 
 ### RabbitMQ
 用于提交后的异步评测任务投递。

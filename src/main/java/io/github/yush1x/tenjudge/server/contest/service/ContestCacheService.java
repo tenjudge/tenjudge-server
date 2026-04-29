@@ -18,8 +18,9 @@ public class ContestCacheService {
     private final ContestProblemQueryService contestProblemQueryService;
     private final RedisService redisService;
 
-    @SuppressWarnings("unchecked")
+
     public List<ContestProblemDTO> getContestProblems(Long contestId) {
+        @SuppressWarnings("unchecked")
         List<ContestProblemDTO> cachedContestProblems = (List<ContestProblemDTO>) redisService.get(
                 "contest_problem:contest:" + contestId, List.class,
                 Duration.ofHours(5), () -> {
