@@ -1,6 +1,7 @@
 package io.github.yush1x.tenjudge.server.contest.service;
 
 import io.github.yush1x.tenjudge.server.common.Code;
+import io.github.yush1x.tenjudge.server.contest.dto.CancelRegisterContestRequest;
 import io.github.yush1x.tenjudge.server.contest.dto.ContestProblemDTO;
 import io.github.yush1x.tenjudge.server.contest.dto.CreateContestRequest;
 import io.github.yush1x.tenjudge.server.contest.dto.RegisterContestRequest;
@@ -45,6 +46,15 @@ public class ContestRequestChecker {
     }
 
     public void checkRegisterContestRequest(RegisterContestRequest request) {
+        if (request == null) {
+            throw new BizException(Code.CONTEST_REQUEST_INVALID, "request is null");
+        }
+        if (request.getContestId() == null) {
+            throw new BizException(Code.CONTEST_REQUEST_INVALID, "contestId is required");
+        }
+    }
+
+    public void checkCancelRegisterContestRequest(CancelRegisterContestRequest request) {
         if (request == null) {
             throw new BizException(Code.CONTEST_REQUEST_INVALID, "request is null");
         }

@@ -1,6 +1,7 @@
 package io.github.yush1x.tenjudge.server.contest.service;
 
 import io.github.yush1x.tenjudge.server.common.Code;
+import io.github.yush1x.tenjudge.server.contest.dto.CancelRegisterContestRequest;
 import io.github.yush1x.tenjudge.server.contest.dto.ContestProblemDTO;
 import io.github.yush1x.tenjudge.server.contest.dto.CreateContestRequest;
 import io.github.yush1x.tenjudge.server.contest.dto.RegisterContestRequest;
@@ -94,11 +95,25 @@ class ContestRequestCheckerTest {
         return request;
     }
 
+    private CancelRegisterContestRequest validCancelRegisterRequest() {
+        CancelRegisterContestRequest request = new CancelRegisterContestRequest();
+        request.setContestId(1L);
+        return request;
+    }
+
     private static Stream<Arguments> registerContestCases() {
         return Stream.of(
                 Arguments.of("all valid", (Consumer<RegisterContestRequest>) req -> {}, null),
                 Arguments.of("request null", null, Code.CONTEST_REQUEST_INVALID),
                 Arguments.of("contestId null", (Consumer<RegisterContestRequest>) req -> req.setContestId(null), Code.CONTEST_REQUEST_INVALID)
+        );
+    }
+
+    private static Stream<Arguments> cancelRegisterContestCases() {
+        return Stream.of(
+                Arguments.of("all valid", (Consumer<CancelRegisterContestRequest>) req -> {}, null),
+                Arguments.of("request null", null, Code.CONTEST_REQUEST_INVALID),
+                Arguments.of("contestId null", (Consumer<CancelRegisterContestRequest>) req -> req.setContestId(null), Code.CONTEST_REQUEST_INVALID)
         );
     }
 
@@ -150,6 +165,27 @@ class ContestRequestCheckerTest {
 
         RegisterContestRequest finalRequest = request;
         BizException ex = assertThrows(BizException.class, () -> contestRequestChecker.checkRegisterContestRequest(finalRequest));
+        assertEquals(expectedCode, ex.getCode());
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("cancelRegisterContestCases")
+    void checkCancelRegisterContestRequest_cases(String caseName, Consumer<CancelRegisterContestRequest> mutator, Code expectedCode) {
+        CancelRegisterContestRequest request = validCancelRegisterRequest();
+        if (mutator == null) {
+            request = null;
+        } else {
+            mutator.accept(request);
+        }
+
+        if (expectedCode == null) {
+            CancelRegisterContestRequest finalRequest = request;
+            assertDoesNotThrow(() -> contestRequestChecker.checkCancelRegisterContestRequest(finalRequest));
+            return;
+        }
+
+        CancelRegisterContestRequest finalRequest = request;
+        BizException ex = assertThrows(BizException.class, () -> contestRequestChecker.checkCancelRegisterContestRequest(finalRequest));
         assertEquals(expectedCode, ex.getCode());
     }
 }

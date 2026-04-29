@@ -2,7 +2,7 @@
 
 ## 业务说明
 - 仅管理员/超级管理员可创建比赛。
-- 已登录用户可报名比赛，用户身份直接取当前登录态。
+- 已登录用户可报名比赛和取消报名，用户身份直接取当前登录态。
 - 时间格式统一使用 ISO 8601：`yyyy-MM-dd'T'HH:mm:ss`。
 
 ### 创建比赛参数规则
@@ -25,6 +25,14 @@
 - 比赛不存在时返回 `CONTEST_NOT_FOUND`。
 - 只要比赛未结束即可报名；当 `now >= endTime` 时禁止报名并返回 `CONTEST_ENDED`。
 - 重复报名按幂等成功处理，包括并发重复请求。
+
+### 取消报名参数规则
+- 接口为 `DELETE /contest/register`，请求对象为 `CancelRegisterContestRequest`，请求体仅包含 `contestId`。
+- 用户必须处于登录状态，后端不接收前端传入的 `userId`。
+- 比赛不存在时返回 `CONTEST_NOT_FOUND`。
+- 只要比赛未开始即可取消报名；当 `now >= startTime` 时禁止取消并返回 `CONTEST_CANCEL_REGISTER_FAILED`。
+- 未报名用户取消报名按幂等成功处理。
+- 取消报名只删除 `contest_participant` 参赛关系，不影响比赛元数据、题目编排缓存和比赛详情缓存。
 
 ### 查询比赛详情规则
 - 接口为 `GET /contest/{contestId}`，不要求登录。

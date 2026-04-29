@@ -4,6 +4,7 @@ import io.github.yush1x.tenjudge.server.auth.entity.User;
 import io.github.yush1x.tenjudge.server.auth.persistence.UserQueryService;
 import io.github.yush1x.tenjudge.server.auth.service.AuthService;
 import io.github.yush1x.tenjudge.server.common.Code;
+import io.github.yush1x.tenjudge.server.contest.dto.CancelRegisterContestRequest;
 import io.github.yush1x.tenjudge.server.contest.dto.ContestProblemDTO;
 import io.github.yush1x.tenjudge.server.contest.dto.CreateContestRequest;
 import io.github.yush1x.tenjudge.server.contest.dto.RegisterContestRequest;
@@ -162,6 +163,24 @@ public class ContestService {
         } catch (DuplicateKeyException ignored) {
             // 并发重复报名由联合主键兜底，保持接口幂等成功。
         }
+    }
+
+    // 取消比赛报名
+    @Transactional(rollbackFor = Exception.class)
+    public void cancelRegisterContest(CancelRegisterContestRequest request) {
+        Long userId = authService.checkLogin();
+        contestRequestChecker.checkCancelRegisterContestRequest(request);
+
+        Contest contest = contestQueryService.select(request.getContestId());
+        if (contest == null) {
+            throw new BizException(Code.CONTEST_NOT_FOUND);
+        }
+        // 比赛开始后报名记录会参与提交权限和榜单快照，不能再被用户主动删除。
+        if (!LocalDateTime.now().isBefore(contest.getStartTime())) {
+            throw new BizException(Code.CONTEST_CANCEL_REGISTER_FAILED, "contest already started");
+        }
+
+        contestParticipantUpdateService.delete(request.getContestId(), userId); // 未报名时删除 0 行，按接口幂等成功处理。
     }
 
     // 查询比赛详情，赛前仅管理员/超级管理员可以查看题目列表

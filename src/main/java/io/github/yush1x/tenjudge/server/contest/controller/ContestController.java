@@ -1,6 +1,7 @@
 package io.github.yush1x.tenjudge.server.contest.controller;
 
 import io.github.yush1x.tenjudge.server.common.Result;
+import io.github.yush1x.tenjudge.server.contest.dto.CancelRegisterContestRequest;
 import io.github.yush1x.tenjudge.server.contest.dto.CreateContestRequest;
 import io.github.yush1x.tenjudge.server.contest.dto.RegisterContestRequest;
 import io.github.yush1x.tenjudge.server.contest.dto.UpdateContestRequest;
@@ -15,6 +16,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -151,6 +153,37 @@ public class ContestController {
         RegisterContestRequest request
     ) {
         contestService.registerContest(request);
+        return Result.success();
+    }
+
+    @DeleteMapping("/register")
+    @Operation(
+        summary = "取消比赛报名",
+        description = "用户通过当前登录态取消比赛报名，请求体只需传 contestId。比赛开始前允许取消，"
+            + "比赛开始后返回 CONTEST_CANCEL_REGISTER_FAILED，未报名时按幂等成功处理。",
+        operationId = "cancelRegisterContest"
+    )
+    public Result<Void> cancelRegister(
+        @org.springframework.web.bind.annotation.RequestBody
+        @RequestBody(
+            required = true,
+            description = "取消比赛报名请求体",
+            content = @Content(
+                schema = @Schema(implementation = CancelRegisterContestRequest.class),
+                examples = @ExampleObject(
+                    name = "取消比赛报名示例",
+                    value = """
+                            {
+                                "contestId": 2001
+                            }
+                            """
+                )
+            )
+        )
+        @Parameter(description = "取消比赛报名请求")
+        CancelRegisterContestRequest request
+    ) {
+        contestService.cancelRegisterContest(request);
         return Result.success();
     }
 

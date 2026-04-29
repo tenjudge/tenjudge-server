@@ -63,9 +63,21 @@
 - `AuthService` 是统一鉴权入口。需要登录、管理员、超级管理员校验时，优先复用 `checkLogin()`、`checkAdmin()`、`checkSuperAdmin()`。
 - 题目查看权限允许匿名访问公开题目，以及处于正在进行比赛上下文中的 private 题；提交权限仍必须登录。Agent 请求不能绕过业务侧的提交限制，涉及比赛提交时必须额外关注 `isAgent` 分支。
 - 涉及数据库、对象存储、消息队列、分布式锁的逻辑时，优先在 `service` 层完成业务编排，不要把这类逻辑下沉到 `controller`。
-- 跨模块复用的基础设施能力统一优先放在 `infra` 包，例如 MinIO、后续公共 Redis/锁封装；模块内 `storage` 包只保留仍带有明确业务边界的本地文件处理或存储辅助逻辑。
+- 跨模块复用的基础设施能力统一优先放在 `infra` 包，例如 MinIO、Redis 等公共封装；模块内 `storage` 包只保留仍带有明确业务边界的本地文件处理或存储辅助逻辑。
 - `persistence` 层的写入职责默认按表拆分。单个 `*UpdateService` 应只负责一张主表或一类明确边界的关系表写入；若同时操作多张表，应拆成独立类，由 `service` 层负责统一编排，不要把多表写入逻辑长期混在同一个 persistence 服务里。
 - 修改 `problem` 和 `submit` 模块时，不能只看数据库，还要同时检查 MinIO、Redis 锁、RabbitMQ 发送链路是否保持一致性。
+
+### 1.5 Redis 缓存封装规范
+
+- `RedisService` 是业务代码访问 Redis 缓存的统一入口，位于 `infra` 包。业务模块不要直接注入 `RedisTemplate` 读写业务缓存；确需新增 Redis 能力时，优先扩展 `RedisService` 的通用方法。
+- `RedisConfig` 只负责 `RedisTemplate` 序列化和 Spring CacheManager 配置；Spring Cache 默认 TTL 通过 `AppCacheProperties.getCacheTtl("spring-cache-default")` 获取。
+- `AppCacheProperties` 负责集中管理缓存 TTL。配置绑定前缀为 `app`，`cacheTtl` 可从 `app.cache-ttl` 读取；若 yml 未配置，则使用类内 `DEFAULT_CACHE_TTLS` 兜底。当前 TTL 名称包括 `user-role`、`problem`、`problem-tags`、`contest-problem`、`contest-detail`、`null-value`、`spring-cache-default`。
+- 新增业务缓存时，调用方应传入稳定的 TTL 名称，例如 `redisService.get(key, clazz, "problem", loader)`；不要在业务代码中硬编码 `Duration`，也不要在各模块里散落 `@Value("${app.cache-ttl...}")`。
+- `RedisService.get(key, clazz, ttlName, loader)` 是带回源逻辑的缓存读取入口：先查 Redis，未命中时用 `lock:cache:{cacheKey}` 加 Redisson 锁防止缓存击穿，二次检查缓存后执行 `loader` 回源，回源为空时写入 `NULL_VALUE`，空值 TTL 使用 `null-value`。
+- `RedisService.getValue(key, clazz)` / `set(key, value, ttlName)` 用于简单值缓存，例如 `user:role:{userId}`。这类方法不负责回源，调用方自己决定未命中后如何查询数据库并写回。
+- `RedisService.delete(key)` 用于数据库写入成功后的显式缓存失效。涉及事务、对象存储、消息队列或多缓存一致性时，失效动作应由 `service` 层编排，不要放在 `controller` 或 `persistence` 层。
+- 业务模块可以保留模块内缓存编排服务，例如 `ProblemCacheService`、`ContestCacheService`，用于维护本模块 key 命名、loader 回源、VO 构建和失效范围；这些服务内部仍应通过 `RedisService` 访问 Redis。
+- 新增 Redis 缓存 key 或 TTL 名称时，必须同步更新根 `README.md` 的 Redis 小节；模块 README 只保留业务缓存 key 和一致性规则，不记录 TTL 实现细节。
 
 ## 2. 项目架构
 
@@ -90,7 +102,7 @@
 - `entity`：数据库实体。
 - `dto`：请求对象及少量模块内部传输结构。
 - `vo`：返回前端的数据结构。
-- `infra`：跨模块基础设施能力封装，如 MinIO、后续公共 Redis/锁能力。
+- `infra`：跨模块基础设施能力封装，如 MinIO、Redis 缓存与锁相关公共能力。
 - `storage`：模块内文件系统、本地临时目录和业务专属存储辅助逻辑。
 
 ### 2.3 重要文件
@@ -100,6 +112,9 @@
 - `exception/BizException.java`：业务异常载体。
 - `exception/GlobalExceptionHandler.java`：统一异常出口。Controller 不应绕过它自行返回异常格式。
 - `infra/MinioService.java`：跨模块复用的 MinIO 对象存储封装。
+- `infra/RedisService.java`：跨模块复用的 Redis 缓存封装，负责按 TTL 名称读写缓存、空值缓存、缓存击穿锁和删除缓存。
+- `config/AppCacheProperties.java`：Redis 缓存 TTL 集中配置与默认值入口。
+- `config/RedisConfig.java`：RedisTemplate 序列化和 Spring CacheManager 配置。
 - `auth/service/AuthService.java`：统一鉴权能力入口。
 - `problem/service/ProblemService.java`：题目导入、更新、锁与对象存储一致性核心。
 - `problem/storage/FileService.java`：题目 zip、本地临时目录和文本文件处理。
@@ -122,7 +137,7 @@
 - 登录、注册、权限检查都应优先复用 `AuthService` 与 `AuthChecker`。
 - 参数合法性优先放在 `AuthRequestChecker`，不要把用户名、邮箱、角色规则散落到 Controller。
 - 管理员与超级管理员的注册限制属于业务规则，修改注册逻辑时必须保留。
-- 用户角色缓存 `user:role:{userId}` 通过 `RedisService` 写入，TTL 使用 `app.cache-ttl.user-role`，不要在 `auth` 模块直接操作 `RedisTemplate` 配置过期时间。
+- 用户角色缓存 `user:role:{userId}` 通过 `RedisService` 写入，TTL 名称使用 `user-role`，不要在 `auth` 模块直接操作 `RedisTemplate` 配置过期时间。
 
 ### 3.2 Problem
 
@@ -130,7 +145,7 @@
 - 题目更新不是单纯数据库更新，还涉及临时目录、MinIO 新旧对象切换、版本号递增和 Redisson 锁。
 - 修改 `ProblemService.update()` 时，必须优先保证数据库与对象存储的一致性，不要破坏“新对象上传成功后再切换指针”的思路。
 - 题目缓存读取、题目标签缓存读取、题目缓存失效和题面 VO 构建统一维护在 `ProblemCacheService`；`ProblemService` 只负责权限、事务和写入编排。
-- 题目缓存 TTL 统一使用 `app.cache-ttl.problem` 与 `app.cache-ttl.problem-tags`，由 `RedisService` 按 TTL 名称读取配置，不要在业务代码中硬编码 `Duration`。
+- 题目缓存 TTL 名称统一使用 `problem` 与 `problem-tags`，由 `RedisService` 按 TTL 名称读取配置，不要在业务代码中硬编码 `Duration`。
 - 题面更新后必须通过 `ProblemCacheService` 失效 `problem:{problemId}` 与 `problem_tags:{problemId}`，并通过 `ContestCacheService` 失效引用该题目的比赛详情缓存。
 - 修改题目可见性只能由超级管理员执行，数据库写入放在 `ProblemUpdateService.updateVisibility()`，写入成功后必须失效题目缓存。
 - 题目权限判断优先查看 `ProblemPermissionChecker`，不要在多个接口里复制粘贴可见性规则。
@@ -142,9 +157,10 @@
 - 创建和更新比赛前都应先走 `ContestRequestChecker`，保持时间字段和题目编排规则一致。
 - `contest.penalty_per_wrong` 为数据库非空字段，默认值为 `0`；请求中的 `penaltyPerWrong` 允许为空，但 service 入库前必须兜底写成 `0`。
 - `contestProblems` 当前采用全量覆盖策略，修改更新逻辑时不要误改成局部 patch 行为，除非同步更新文档和接口约定。
+- 取消比赛报名使用 `DELETE /contest/register`，未报名时按幂等成功处理；比赛开始后不得删除 `contest_participant`，避免破坏提交权限和榜单快照基础记录。
 - `contest` 模块内所有 Redis 缓存 key、TTL 读取、缓存加载与失效逻辑统一收敛到 `ContestCacheService`；`persistence` 层不要直接依赖 `RedisService`。
 - `problem/queryInContest` 会通过 Redis 缓存整场比赛的题目编排列表（包含 `problemId` 与 `problemIndex`）；修改 `contest_problem` 写入链路时，必须通过 `ContestCacheService` 统一删除相关缓存。
-- `contest/{contestId}` 会缓存比赛详情聚合结果（比赛元数据与题目标题摘要），TTL 通过 `RedisService` 按 `app.cache-ttl.<key>` 读取；本地开发 TTL 写在 `application-dev.yaml`，新增缓存 key 时必须同步更新根 `README.md` 与模块 README。
+- `contest/{contestId}` 会缓存比赛详情聚合结果（比赛元数据与题目标题摘要），TTL 名称使用 `contest-detail`，新增缓存 key 或 TTL 名称时必须同步更新根 `README.md` 的 Redis 小节。
 - 修改比赛元数据或题目编排写入链路时，必须在方法末尾同步失效 `contest_problem:contest:{contestId}` 与 `contest_detail:contest:{contestId}`。
 - 不要为了极短的字符串拼接、单行转发或没有复用价值的逻辑新开 private 方法；这类代码优先保持内联，除非能明显降低复杂度或表达业务约束。
 - 比赛题目编排依赖题目真实存在性校验，不能只依赖数据库约束兜底；同一场比赛内 `problemId` 和 `problemIndex` 都必须唯一。

@@ -4,6 +4,7 @@ import io.github.yush1x.tenjudge.server.auth.entity.User;
 import io.github.yush1x.tenjudge.server.auth.persistence.UserQueryService;
 import io.github.yush1x.tenjudge.server.auth.service.AuthService;
 import io.github.yush1x.tenjudge.server.common.Code;
+import io.github.yush1x.tenjudge.server.contest.dto.CancelRegisterContestRequest;
 import io.github.yush1x.tenjudge.server.contest.dto.ContestProblemDTO;
 import io.github.yush1x.tenjudge.server.contest.dto.CreateContestRequest;
 import io.github.yush1x.tenjudge.server.contest.dto.RegisterContestRequest;
@@ -261,6 +262,42 @@ class ContestServiceTest {
     }
 
     @Test
+    void cancelRegisterContest_contestNotFound_throwsBizException() {
+        when(contestQueryService.select(1L)).thenReturn(null);
+
+        BizException ex = assertThrows(BizException.class, () -> contestService.cancelRegisterContest(validCancelRegisterRequest()));
+
+        assertEquals(Code.CONTEST_NOT_FOUND, ex.getCode());
+        verifyNoInteractions(contestParticipantUpdateService);
+    }
+
+    @Test
+    void cancelRegisterContest_started_throwsBizException() {
+        Contest contest = new Contest();
+        contest.setId(1L);
+        contest.setStartTime(LocalDateTime.now().minusMinutes(1));
+        when(contestQueryService.select(1L)).thenReturn(contest);
+
+        BizException ex = assertThrows(BizException.class, () -> contestService.cancelRegisterContest(validCancelRegisterRequest()));
+
+        assertEquals(Code.CONTEST_CANCEL_REGISTER_FAILED, ex.getCode());
+        verifyNoInteractions(contestParticipantUpdateService);
+    }
+
+    @Test
+    void cancelRegisterContest_beforeStart_deletesParticipantIdempotently() {
+        Contest contest = new Contest();
+        contest.setId(1L);
+        contest.setStartTime(LocalDateTime.now().plusMinutes(1));
+        when(contestQueryService.select(1L)).thenReturn(contest);
+
+        assertDoesNotThrow(() -> contestService.cancelRegisterContest(validCancelRegisterRequest()));
+
+        verify(contestParticipantUpdateService).delete(1L, 1L);
+        verifyNoInteractions(contestParticipantQueryService);
+    }
+
+    @Test
     void queryContestDetail_contestNotFound_throwsBizException() {
         when(contestCacheService.getContestDetail(1L)).thenReturn(null);
 
@@ -382,6 +419,12 @@ class ContestServiceTest {
 
     private RegisterContestRequest validRegisterRequest() {
         RegisterContestRequest request = new RegisterContestRequest();
+        request.setContestId(1L);
+        return request;
+    }
+
+    private CancelRegisterContestRequest validCancelRegisterRequest() {
+        CancelRegisterContestRequest request = new CancelRegisterContestRequest();
         request.setContestId(1L);
         return request;
     }
