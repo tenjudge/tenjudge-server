@@ -122,6 +122,7 @@
 - 登录、注册、权限检查都应优先复用 `AuthService` 与 `AuthChecker`。
 - 参数合法性优先放在 `AuthRequestChecker`，不要把用户名、邮箱、角色规则散落到 Controller。
 - 管理员与超级管理员的注册限制属于业务规则，修改注册逻辑时必须保留。
+- 用户角色缓存 `user:role:{userId}` 通过 `RedisService` 写入，TTL 使用 `app.cache-ttl.user-role`，不要在 `auth` 模块直接操作 `RedisTemplate` 配置过期时间。
 
 ### 3.2 Problem
 
@@ -129,6 +130,7 @@
 - 题目更新不是单纯数据库更新，还涉及临时目录、MinIO 新旧对象切换、版本号递增和 Redisson 锁。
 - 修改 `ProblemService.update()` 时，必须优先保证数据库与对象存储的一致性，不要破坏“新对象上传成功后再切换指针”的思路。
 - 题目缓存读取、题目标签缓存读取、题目缓存失效和题面 VO 构建统一维护在 `ProblemCacheService`；`ProblemService` 只负责权限、事务和写入编排。
+- 题目缓存 TTL 统一使用 `app.cache-ttl.problem` 与 `app.cache-ttl.problem-tags`，由 `RedisService` 按 TTL 名称读取配置，不要在业务代码中硬编码 `Duration`。
 - 题面更新后必须通过 `ProblemCacheService` 失效 `problem:{problemId}` 与 `problem_tags:{problemId}`，并通过 `ContestCacheService` 失效引用该题目的比赛详情缓存。
 - 修改题目可见性只能由超级管理员执行，数据库写入放在 `ProblemUpdateService.updateVisibility()`，写入成功后必须失效题目缓存。
 - 题目权限判断优先查看 `ProblemPermissionChecker`，不要在多个接口里复制粘贴可见性规则。
@@ -142,7 +144,7 @@
 - `contestProblems` 当前采用全量覆盖策略，修改更新逻辑时不要误改成局部 patch 行为，除非同步更新文档和接口约定。
 - `contest` 模块内所有 Redis 缓存 key、TTL 读取、缓存加载与失效逻辑统一收敛到 `ContestCacheService`；`persistence` 层不要直接依赖 `RedisService`。
 - `problem/queryInContest` 会通过 Redis 缓存整场比赛的题目编排列表（包含 `problemId` 与 `problemIndex`）；修改 `contest_problem` 写入链路时，必须通过 `ContestCacheService` 统一删除相关缓存。
-- `contest/{contestId}` 会缓存比赛详情聚合结果（比赛元数据与题目标题摘要），TTL 统一从 `app.cache-ttl.<key>` 读取；本地开发 TTL 写在 `application-dev.yaml`，新增缓存 key 时必须同步更新根 `README.md` 与模块 README。
+- `contest/{contestId}` 会缓存比赛详情聚合结果（比赛元数据与题目标题摘要），TTL 通过 `RedisService` 按 `app.cache-ttl.<key>` 读取；本地开发 TTL 写在 `application-dev.yaml`，新增缓存 key 时必须同步更新根 `README.md` 与模块 README。
 - 修改比赛元数据或题目编排写入链路时，必须在方法末尾同步失效 `contest_problem:contest:{contestId}` 与 `contest_detail:contest:{contestId}`。
 - 不要为了极短的字符串拼接、单行转发或没有复用价值的逻辑新开 private 方法；这类代码优先保持内联，除非能明显降低复杂度或表达业务约束。
 - 比赛题目编排依赖题目真实存在性校验，不能只依赖数据库约束兜底；同一场比赛内 `problemId` 和 `problemIndex` 都必须唯一。

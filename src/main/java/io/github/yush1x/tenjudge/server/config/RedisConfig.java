@@ -1,7 +1,5 @@
 package io.github.yush1x.tenjudge.server.config;
 
-import java.time.Duration;
-
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
@@ -31,12 +29,12 @@ public class RedisConfig {
     }
 
     @Bean
-    public RedisCacheConfiguration redisCacheConfiguration() {
+    public RedisCacheConfiguration redisCacheConfiguration(AppCacheProperties appCacheProperties) {
         return RedisCacheConfiguration.defaultCacheConfig()
                 .serializeKeysWith(SerializationPair.fromSerializer(RedisSerializer.string()))  // 序列化
                 .serializeValuesWith(SerializationPair.fromSerializer(RedisSerializer.json()))
                 .disableCachingNullValues()
-                .entryTtl(Duration.ofHours(1)); // 设置默认过期时间
+                .entryTtl(appCacheProperties.getCacheTtl("spring-cache-default")); // 设置默认过期时间
     }
 
     @Bean

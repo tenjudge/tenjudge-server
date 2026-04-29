@@ -29,6 +29,8 @@ Java 21、Spring Boot 4、Maven、MyBatis-Plus、PostgreSQL、Redis、Redisson�
 - `contest_problem:contest:{contestId}` 用于比赛题目编排缓存
 - `contest_detail:contest:{contestId}` 用于比赛详情聚合缓存，包含比赛元数据与题目标题摘要
 
+Redis 缓存 TTL 的实现方式统一写在这里：TTL 配置集中在 `app.cache-ttl` 下，本地开发配置位于 `application-dev.yaml`。当前使用的 TTL 配置项包括 `user-role`、`problem`、`problem-tags`、`contest-problem`、`contest-detail`、`null-value` 与 `spring-cache-default`。业务代码通过 `RedisService` 传入 TTL 名称读取配置，不直接硬编码 `Duration`；Spring Cache 默认 TTL 通过 `RedisConfig` 读取 `spring-cache-default`。
+
 锁相关：
 - `lock:problem:{problemId}` 用于题目数据更新的分布式读写锁
 - `lock:cache:{cacheKey}` 用于防止缓存击穿的分布式锁

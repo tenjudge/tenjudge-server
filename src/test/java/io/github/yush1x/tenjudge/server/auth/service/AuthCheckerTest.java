@@ -3,6 +3,7 @@ package io.github.yush1x.tenjudge.server.auth.service;
 import io.github.yush1x.tenjudge.server.auth.persistence.UserQueryService;
 import io.github.yush1x.tenjudge.server.common.Code;
 import io.github.yush1x.tenjudge.server.exception.BizException;
+import io.github.yush1x.tenjudge.server.infra.RedisService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -10,12 +11,11 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
-import org.junit.jupiter.api.BeforeEach;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -29,17 +29,32 @@ public class AuthCheckerTest {
     private StpService stpService;
 
     @Mock
-    private RedisTemplate<String, Object> redisTemplate;
-
-    @Mock
-    private ValueOperations<String, Object> valueOperations;
+    private RedisService redisService;
 
     @InjectMocks
     private AuthChecker authChecker;
 
-    @BeforeEach
-    public void setUp() {
-        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+    // getRole方法测试：命中缓存时不再查询数据库
+    @Test
+    public void getRole_cached_returnRole() {
+        when(redisService.getValue("user:role:123", String.class)).thenReturn("admin");
+
+        String role = authChecker.getRole(123L);
+
+        assertEquals("admin", role);
+        verify(userQueryService, never()).getRole(123L);
+    }
+
+    // getRole方法测试：未命中缓存时查询数据库，并按统一TTL名称写回Redis
+    @Test
+    public void getRole_cacheMiss_setUserRoleCache() {
+        when(redisService.getValue("user:role:123", String.class)).thenReturn(null);
+        when(userQueryService.getRole(123L)).thenReturn("admin");
+
+        String role = authChecker.getRole(123L);
+
+        assertEquals("admin", role);
+        verify(redisService).set("user:role:123", "admin", "user-role");
     }
 
     // checkLogin方法测试：未登录时抛出异常
@@ -72,6 +87,7 @@ public class AuthCheckerTest {
     public void checkAdmin_notAdmin_throwException() {
         when(stpService.isLogin()).thenReturn(true);
         when(stpService.getLoginIdAsLong()).thenReturn(123L);
+        when(redisService.getValue("user:role:123", String.class)).thenReturn(null);
         when(userQueryService.getRole(123L)).thenReturn("user");
 
         BizException ex = assertThrows(BizException.class, () -> authChecker.checkAdmin());
@@ -83,6 +99,7 @@ public class AuthCheckerTest {
     public void checkAdmin_admin_returnId() {
         when(stpService.isLogin()).thenReturn(true);
         when(stpService.getLoginIdAsLong()).thenReturn(123L);
+        when(redisService.getValue("user:role:123", String.class)).thenReturn(null);
         when(userQueryService.getRole(123L)).thenReturn("admin");
 
         Long id = authChecker.checkAdmin();
@@ -102,6 +119,7 @@ public class AuthCheckerTest {
     public void checkSuperAdmin_notSuperAdmin_throwException() {
         when(stpService.isLogin()).thenReturn(true);
         when(stpService.getLoginIdAsLong()).thenReturn(123L);
+        when(redisService.getValue("user:role:123", String.class)).thenReturn(null);
         when(userQueryService.getRole(123L)).thenReturn("admin");
 
         BizException ex = assertThrows(BizException.class, () -> authChecker.checkSuperAdmin());
@@ -113,6 +131,7 @@ public class AuthCheckerTest {
     public void checkSuperAdmin_superAdmin_returnId() {
         when(stpService.isLogin()).thenReturn(true);
         when(stpService.getLoginIdAsLong()).thenReturn(123L);
+        when(redisService.getValue("user:role:123", String.class)).thenReturn(null);
         when(userQueryService.getRole(123L)).thenReturn("super_admin");
 
         Long id = authChecker.checkSuperAdmin();

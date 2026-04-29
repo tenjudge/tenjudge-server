@@ -14,9 +14,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
 
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.function.Supplier;
@@ -45,12 +43,6 @@ class ContestCacheServiceTest {
     @InjectMocks
     private ContestCacheService contestCacheService;
 
-    @org.junit.jupiter.api.BeforeEach
-    void setUp() {
-        ReflectionTestUtils.setField(contestCacheService, "contestProblemCacheTtl", Duration.ofHours(5));
-        ReflectionTestUtils.setField(contestCacheService, "contestDetailCacheTtl", Duration.ofSeconds(60));
-    }
-
     @Test
     void getContestProblems_loaderBuildsContestProblemDTOs() {
         ContestProblem contestProblem = new ContestProblem();
@@ -59,7 +51,7 @@ class ContestCacheServiceTest {
         contestProblem.setProblemIndex("A");
 
         when(contestProblemQueryService.selectByContestId(10L)).thenReturn(List.of(contestProblem));
-        when(redisService.get(eq("contest_problem:contest:10"), eq(List.class), any(Duration.class), any()))
+        when(redisService.get(eq("contest_problem:contest:10"), eq(List.class), eq("contest-problem"), any()))
                 .thenAnswer(invocation -> {
                     Supplier<?> loader = invocation.getArgument(3);
                     return loader.get();
@@ -78,7 +70,7 @@ class ContestCacheServiceTest {
         contestProblemDTO.setProblemId(1L);
         contestProblemDTO.setProblemIndex("A");
 
-        when(redisService.get(eq("contest_problem:contest:10"), eq(List.class), any(Duration.class), any()))
+        when(redisService.get(eq("contest_problem:contest:10"), eq(List.class), eq("contest-problem"), any()))
                 .thenReturn(List.of(contestProblemDTO));
 
         List<ContestProblemDTO> result = contestCacheService.getContestProblems(10L);
@@ -91,12 +83,12 @@ class ContestCacheServiceTest {
     @Test
     void getContestDetail_usesContestDetailCacheKey() {
         Contest contest = contest(10L);
-        when(redisService.get(eq("contest_detail:contest:10"), eq(ContestDetailVO.class), any(Duration.class), any()))
+        when(redisService.get(eq("contest_detail:contest:10"), eq(ContestDetailVO.class), eq("contest-detail"), any()))
                 .thenAnswer(invocation -> {
                     Supplier<?> loader = invocation.getArgument(3);
                     return loader.get();
                 });
-        when(redisService.get(eq("contest_problem:contest:10"), eq(List.class), any(Duration.class), any()))
+        when(redisService.get(eq("contest_problem:contest:10"), eq(List.class), eq("contest-problem"), any()))
                 .thenReturn(List.of());
         when(contestQueryService.select(10L)).thenReturn(contest);
         when(problemQueryService.selectNamesByIds(any())).thenReturn(List.of());
@@ -116,12 +108,12 @@ class ContestCacheServiceTest {
         problemA.setProblemId(1001L);
         problemA.setProblemIndex("A");
 
-        when(redisService.get(eq("contest_detail:contest:10"), eq(ContestDetailVO.class), any(Duration.class), any()))
+        when(redisService.get(eq("contest_detail:contest:10"), eq(ContestDetailVO.class), eq("contest-detail"), any()))
                 .thenAnswer(invocation -> {
                     Supplier<?> loader = invocation.getArgument(3);
                     return loader.get();
                 });
-        when(redisService.get(eq("contest_problem:contest:10"), eq(List.class), any(Duration.class), any()))
+        when(redisService.get(eq("contest_problem:contest:10"), eq(List.class), eq("contest-problem"), any()))
                 .thenReturn(List.of(problemB, problemA));
         when(contestQueryService.select(10L)).thenReturn(contest(10L));
         when(problemQueryService.selectNamesByIds(any()))

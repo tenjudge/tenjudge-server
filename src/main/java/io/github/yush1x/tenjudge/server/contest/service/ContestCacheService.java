@@ -11,10 +11,8 @@ import io.github.yush1x.tenjudge.server.infra.RedisService;
 import io.github.yush1x.tenjudge.server.problem.entity.Problem;
 import io.github.yush1x.tenjudge.server.problem.persistence.ProblemQueryService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -32,18 +30,12 @@ public class ContestCacheService {
     private final ProblemQueryService problemQueryService;
     private final RedisService redisService;
 
-    @Value("${app.cache-ttl.contest-problem:5h}")
-    private Duration contestProblemCacheTtl;
-
-    @Value("${app.cache-ttl.contest-detail:60s}")
-    private Duration contestDetailCacheTtl;
-
     // 获取某场比赛的
     public List<ContestProblemDTO> getContestProblems(Long contestId) {
         @SuppressWarnings("unchecked")
         List<ContestProblemDTO> cachedContestProblems = (List<ContestProblemDTO>) redisService.get(
                 "contest_problem:contest:" + contestId, List.class,
-                contestProblemCacheTtl, () -> {
+                "contest-problem", () -> {
                     // 比赛题目编排只缓存 problemId + problemIndex，避免题目标题变更时必须反查所有比赛缓存。
                     List<ContestProblemDTO> contestProblemDTOs = new ArrayList<>();
                     for (ContestProblem contestProblem : contestProblemQueryService.selectByContestId(contestId)) {
@@ -60,7 +52,7 @@ public class ContestCacheService {
 
     public ContestDetailVO getContestDetail(Long contestId) {
         // 比赛详情是元数据与题目标题摘要的聚合缓存，短 TTL 用来接受标题短暂陈旧并降低读库压力。
-        return redisService.get("contest_detail:contest:" + contestId, ContestDetailVO.class, contestDetailCacheTtl, () -> {
+        return redisService.get("contest_detail:contest:" + contestId, ContestDetailVO.class, "contest-detail", () -> {
             Contest contest = contestQueryService.select(contestId);
             if (contest == null) {
                 return null;

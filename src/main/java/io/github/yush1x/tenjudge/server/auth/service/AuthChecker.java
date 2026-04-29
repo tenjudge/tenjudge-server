@@ -3,12 +3,9 @@ package io.github.yush1x.tenjudge.server.auth.service;
 import io.github.yush1x.tenjudge.server.auth.persistence.UserQueryService;
 import io.github.yush1x.tenjudge.server.common.Code;
 import io.github.yush1x.tenjudge.server.exception.BizException;
+import io.github.yush1x.tenjudge.server.infra.RedisService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
-
-import java.util.concurrent.TimeUnit;
 
 /*
  * 检查用户权限是否满足要求
@@ -20,20 +17,17 @@ public class AuthChecker {
 
     private final StpService stpService;
     private final UserQueryService userQueryService;
-    private final RedisTemplate<String, Object> redisTemplate;
-
-    @Value("${app.auth.role-cache-expire:3600}")
-    private long roleCacheExpire;
+    private final RedisService redisService;
 
     /*
      * 根据id获取用户角色
      */
     public String getRole(Long id) {
-        String role = (String) redisTemplate.opsForValue().get("user:role:" + id);
+        String role = redisService.getValue("user:role:" + id, String.class);
         if (role == null) {
             role = userQueryService.getRole(id);
             if (role != null) {
-                redisTemplate.opsForValue().set("user:role:" + id, role, roleCacheExpire, TimeUnit.SECONDS);
+                redisService.set("user:role:" + id, role, "user-role");
             }
         }
         return role;

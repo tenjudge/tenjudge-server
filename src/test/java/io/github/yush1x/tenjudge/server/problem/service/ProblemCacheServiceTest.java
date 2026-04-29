@@ -12,7 +12,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.redisson.api.RedissonClient;
 
-import java.time.Duration;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -43,7 +42,7 @@ class ProblemCacheServiceTest {
     @Test
     void getProblem_usesProblemCacheKey() {
         Problem problem = buildProblem();
-        when(redisService.get(eq("problem:1"), eq(Problem.class), any(Duration.class), any())).thenReturn(problem);
+        when(redisService.get(eq("problem:1"), eq(Problem.class), eq("problem"), any())).thenReturn(problem);
 
         assertEquals(problem, problemCacheService.getProblem(1L));
     }
@@ -51,7 +50,7 @@ class ProblemCacheServiceTest {
     @Test
     void getProblemTags_usesProblemTagsCacheKey() {
         List<String> tags = List.of("dp", "graph");
-        when(redisService.get(eq("problem_tags:1"), eq(List.class), any(Duration.class), any())).thenReturn(tags);
+        when(redisService.get(eq("problem_tags:1"), eq(List.class), eq("problem-tags"), any())).thenReturn(tags);
 
         assertEquals(tags, problemCacheService.getProblemTags(1L));
     }

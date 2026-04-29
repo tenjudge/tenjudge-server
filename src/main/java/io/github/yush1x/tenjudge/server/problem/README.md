@@ -24,7 +24,7 @@ config.yaml 格式：
 name: "Two Sum Problem"      # 题目名称，必填，50字以内
 time_limit: 1500             # 时间限制，单位毫秒，整数，必填，大于0
 memory_limit: 256            # 内存限制，单位MB，整数，必填，大于0
-checker: "normal"            # 判题类型，可选"special"或 "wcmp" 等自带的checker，必填
+checker: "special"            # 判题类型，可选"special"或 "wcmp" 等自带的checker，必填
 difficulty: 1600             # 题目难度评分，[1, 3500]
 tags:
   - "sort"
@@ -46,14 +46,14 @@ tags:
 题目可见性分为以下两种：
 - public 公开题目：所有人可匿名访问，提交时仍需满足提交链路的登录要求
 - private 私密题目：
-  - 处于比赛状态下的题目仍属于 private，通过 `contestId` 进入比赛上下文后再做权限判断。
+  - 处于比赛状态下的题目仍属于 private，通过 `contestId` 查看所属比赛状态后再做权限判断。
   - 访问权限与提交权限分开控制：
     - 访问：不要求登录或报名比赛，但要求比赛存在、题目属于该比赛且比赛正在进行中。
     - 提交：除访问条件外，还要求用户已经报名比赛。
   - 对于普通用户，比赛中的 private 题不允许 Agent 提交。
   - 其余情况仅允许管理员访问
-题目查询操作对于非管理员，若题目为比赛上下文中的 private 题，则只返回做题必需字段：`id`、`checker`、`timeLimit`、`memoryLimit`、`name`、`statement`，其余字段（如 `authorId`、`visibility`、`solution`、`difficulty`、`version`、`tags`）默认不返回
-- Agent 查看题目使用独立接口 `/agent/problem/{id}`，与普通用户的 `/problem/{id}` 不共用调用入口，但题目查看权限规则相同：public 题和比赛中的 private 题可匿名查看。
+- 题目查询操作对于非管理员，若题目为比赛上下文中的 private 题，则只返回做题必需字段：`id`、`checker`、`timeLimit`、`memoryLimit`、`name`、`statement`，其余字段（如 `authorId`、`visibility`、`solution`、`difficulty`、`version`、`tags`）默认不返回
+- Agent 查看题目使用独立接口 `/agent/problem/{id}`，与普通用户的 `/problem/{id}` 不共用调用入口；该入口不携带比赛上下文，因此非管理员 Agent 只能查看 public 题，不能通过题目 id 直接查看比赛中的 private 题。
 
 ## 数据存储
 
@@ -109,14 +109,14 @@ contest_problem:contest:{contestId}  比赛题目编排缓存，值为整场比�
 
 ## 业务实现
 
-### 新建题目
+### 1. 新建题目
 - 使用 `ZipInputStream` 解压 zip 文件至 `/temp/problem/<uuid>/` 临时目录
 - 校验 yaml、题面与测试点文件完整性
 - 将题面、题解、配置等数据存储至数据库
 - 将测试数据与判题文件保存至 MinIO，对象名前缀统一为 `problem/<problem_key>/`
 - 删除临时目录
 
-### 更新题目
+### 2. 更新题目
 
 #### 对象存储回滚
 若更新时发生异常，需将对象存储中的数据进行回滚，使用**临时对象 + 数据库指针切换**的方式实现：
@@ -136,32 +136,18 @@ contest_problem:contest:{contestId}  比赛题目编排缓存，值为整场比�
 - 题面更新可能改变题目标题，因此还会通过比赛模块的 `ContestCacheService` 失效引用该题目的 `contest_detail:contest:{contestId}` 缓存。
 - `contest_problem:contest:{contestId}` 只缓存 `problemId + problemIndex`，题面更新不改变题目编排，不需要删除。
 
-### 修改题目可见性
-- 接口：`PATCH /problem/visibility`
-- 请求体：`id` 与 `visibility`，其中 `visibility` 只能为 `public` 或 `private`。
-- 仅超级管理员可以修改题目可见性。
-- 数据库写入由 `ProblemUpdateService.updateVisibility()` 负责，只更新 `problem.visibility` 一列。
-- 写入成功后会失效 `problem:{problemId}` 与 `problem_tags:{problemId}`，避免匿名访问权限读到旧可见性。
+### 3. 查询题目
 
-### 题目缓存与 VO 构建
-- `ProblemCacheService` 负责题目缓存读取、题目标签缓存读取、题目缓存失效，以及完整/受限 `ProblemVO` 构建。
-- `ProblemService` 只负责权限、事务、锁和写入链路编排。
+查询题目由 `ProblemService` 提供三个入口，并统一收敛到 `query(ProblemQueryRequest)`：
 
-### 题目访问权限检查
-具体实现在 `ProblemPermissionChecker` 类中
+- `/problem/{id}`：按题目 id 查询，不携带比赛上下文；public 题可匿名查看，private 题仅管理员可查看。
+- `/contest/{contestId}/problem/{index}`：按比赛内题号查询。先从 `ContestCacheService` 获取比赛题目编排，用 `index` 找到真实 `problemId`，再携带 `contestId` 进入统一查询。
+- `/agent/problem/{id}`：Agent 查询入口，标记 `isAgent=true`，但不携带 `contestId`，因此非管理员 Agent 不能直接查看比赛中的 private 题。
 
-### 比赛内按题号查题
-- `queryInContest` 根据 `contestId + problemIndex` 查询 `contest_problem` 表获取题目id。
-- 查询结果会按比赛维度缓存到 Redis，缓存整场比赛的题目编排列表，减少比赛中频繁按题号访问时对数据库的重复读取。
-- 若比赛题目编排更新，必须由比赛模块在方法末尾失效对应缓存。
+统一查询流程：
 
-- 对于超级管理员和管理员，直接放行。
-- 对于匿名请求和普通用户：
-  - 若题目为 public，则查看直接放行；提交仍要求登录。
-  - 若题目为 private，查看时要求比赛存在、题目属于比赛且比赛正在进行中；提交时还要求用户已登录且已报名。
+1. 读取题目元数据：`ProblemCacheService.getProblem(problemId)` 先查 `problem:{problemId}` 缓存；缓存失效或未命中时，在 `lock:problem:{problemId}` 读锁保护下调用 `ProblemQueryService.select(problemId)` 从数据库回源，并重新写入缓存。
+2. 鉴权：题目不存在时抛出 `PROBLEM_NOT_FOUND`；题目存在后由 `ProblemPermissionChecker.checkAccessPermission(...)` 校验访问权限。public 题直接放行；管理员和超级管理员直接放行；private 题必须携带合法比赛上下文，且比赛存在、题目属于该比赛、当前时间处于比赛进行区间。
+3. 拼接返回值：若有完整访问权限，通过 `ProblemCacheService.getProblemTags(problemId)` 读取 `problem_tags:{problemId}`；标签缓存失效时同样加读锁从 `ProblemTagQueryService` 回源，然后拼成完整 `ProblemVO`。若只是比赛上下文中的受限访问，则直接基于题目元数据拼接受限 `ProblemVO`，只返回 `id`、`checker`、`timeLimit`、`memoryLimit`、`name`、`statement`。
 
-以下权限的鉴定由具体业务代码实现：
-- 对于测评请求，若题目处于比赛中的 private 状态，则仅允许用户提交，**不允许非管理员用户的 Agent 提交**。防止选手通过Agent看到测评数据。
-
-细节说明：
-- Agent 查看题目可以不携带用户 Token，但提交和测评仍必须走登录、报名和 Agent 提交限制。查看和提交使用同一套权限组件，但不能把匿名查看规则扩展到提交链路。
+查询链路只读取 Redis、数据库和 Redisson 读锁，不访问 MinIO，也不修改题目数据。题面更新或可见性变更后，由写入链路统一失效 `problem:{problemId}` 与 `problem_tags:{problemId}`，下次查询再自动回源重建缓存。

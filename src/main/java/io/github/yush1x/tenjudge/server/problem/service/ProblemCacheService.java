@@ -13,7 +13,6 @@ import org.redisson.api.RReadWriteLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -28,13 +27,13 @@ public class ProblemCacheService {
 
     public Problem getProblem(Long problemId) {
         return redisService.get("problem:" + problemId, Problem.class,
-                Duration.ofHours(5), () -> getProblemWithReadLock(problemId));
+                "problem", () -> getProblemWithReadLock(problemId));
     }
 
     @SuppressWarnings("unchecked")
     public List<String> getProblemTags(Long problemId) {
         return redisService.get("problem_tags:" + problemId, List.class,
-                Duration.ofHours(5), () -> getProblemTagsWithReadLock(problemId));
+                "problem-tags", () -> getProblemTagsWithReadLock(problemId));
     }
 
     public void evictProblemCaches(Long problemId) {
