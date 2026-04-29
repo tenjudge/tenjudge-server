@@ -44,16 +44,16 @@ tags:
 
 ### 题目可见性
 题目可见性分为以下两种：
-- public 公开题目：所有人可访问和提交
+- public 公开题目：所有人可匿名访问，提交时仍需满足提交链路的登录要求
 - private 私密题目：
   - 处于比赛状态下的题目仍属于 private，通过 `contestId` 进入比赛上下文后再做权限判断。
   - 访问权限与提交权限分开控制：
-    - 访问：不要求报名比赛，但要求比赛存在、题目属于该比赛且比赛正在进行中。
+    - 访问：不要求登录或报名比赛，但要求比赛存在、题目属于该比赛且比赛正在进行中。
     - 提交：除访问条件外，还要求用户已经报名比赛。
-  - 对于普通用户，比赛中的 private 题不允许 Agent 访问或提交。
+  - 对于普通用户，比赛中的 private 题不允许 Agent 提交。
   - 其余情况仅允许管理员访问
 题目查询操作对于非管理员，若题目为比赛上下文中的 private 题，则只返回做题必需字段：`id`、`checker`、`timeLimit`、`memoryLimit`、`name`、`statement`，其余字段（如 `authorId`、`visibility`、`solution`、`difficulty`、`version`、`tags`）默认不返回
-- Agent 查看题目使用独立接口 `/agent/problem/{id}`，与普通用户的 `/problem/{id}` 不共用调用入口，但复用同一套后端鉴权与权限校验逻辑。
+- Agent 查看题目使用独立接口 `/agent/problem/{id}`，与普通用户的 `/problem/{id}` 不共用调用入口，但题目查看权限规则相同：public 题和比赛中的 private 题可匿名查看。
 
 ## 数据存储
 
@@ -102,6 +102,8 @@ problem/<problem_key>/
 ### Redis
 ```
 lock:problem:{problemId}  题目的读写锁
+problem:{problemId}  题目元数据缓存，值为 Problem
+problem_tags:{problemId}  题目标签缓存，值为标签列表
 contest_problem:contest:{contestId}  比赛题目编排缓存，值为整场比赛的 ContestProblemDTO 列表
 ```
 
@@ -129,22 +131,37 @@ contest_problem:contest:{contestId}  比赛题目编排缓存，值为整场比�
 每次更新时，同步更新题目版本号。评测机可提前拉取题目测试点数据并缓存，每次测评时验证版本号是否过期，过期则重新拉取测试点数据。
 （目前该设计已实现但未被测评机启用，测评机直接读取 `problem_key` 识别版本）
 
+#### 缓存失效
+- 题面更新成功后，必须失效 `problem:{problemId}` 与 `problem_tags:{problemId}`。
+- 题面更新可能改变题目标题，因此还会通过比赛模块的 `ContestCacheService` 失效引用该题目的 `contest_detail:contest:{contestId}` 缓存。
+- `contest_problem:contest:{contestId}` 只缓存 `problemId + problemIndex`，题面更新不改变题目编排，不需要删除。
+
+### 修改题目可见性
+- 接口：`PATCH /problem/visibility`
+- 请求体：`id` 与 `visibility`，其中 `visibility` 只能为 `public` 或 `private`。
+- 仅超级管理员可以修改题目可见性。
+- 数据库写入由 `ProblemUpdateService.updateVisibility()` 负责，只更新 `problem.visibility` 一列。
+- 写入成功后会失效 `problem:{problemId}` 与 `problem_tags:{problemId}`，避免匿名访问权限读到旧可见性。
+
+### 题目缓存与 VO 构建
+- `ProblemCacheService` 负责题目缓存读取、题目标签缓存读取、题目缓存失效，以及完整/受限 `ProblemVO` 构建。
+- `ProblemService` 只负责权限、事务、锁和写入链路编排。
+
 ### 题目访问权限检查
 具体实现在 `ProblemPermissionChecker` 类中
 
 ### 比赛内按题号查题
-- `queryInContest` 不直接信任前端传入的题目 ID，而是先根据 `contestId + problemIndex` 查询 `contest_problem` 表。
+- `queryInContest` 根据 `contestId + problemIndex` 查询 `contest_problem` 表获取题目id。
 - 查询结果会按比赛维度缓存到 Redis，缓存整场比赛的题目编排列表，减少比赛中频繁按题号访问时对数据库的重复读取。
 - 若比赛题目编排更新，必须由比赛模块在方法末尾失效对应缓存。
 
 - 对于超级管理员和管理员，直接放行。
-- 对于普通用户：
-  - 若题目为 public，则访问与提交都直接放行。
-  - 若题目为 private，访问时要求比赛存在、题目属于比赛且比赛正在进行中；提交时还要求用户已报名。
+- 对于匿名请求和普通用户：
+  - 若题目为 public，则查看直接放行；提交仍要求登录。
+  - 若题目为 private，查看时要求比赛存在、题目属于比赛且比赛正在进行中；提交时还要求用户已登录且已报名。
 
 以下权限的鉴定由具体业务代码实现：
 - 对于测评请求，若题目处于比赛中的 private 状态，则仅允许用户提交，**不允许非管理员用户的 Agent 提交**。防止选手通过Agent看到测评数据。
 
 细节说明：
-- Agent会**携带用户Token来请求访问或测评，两者复用同一套鉴权逻辑**，不需要单独为Agent设计鉴权方案。**用一套鉴权但不共用一套调用接口**，
-因为处理用户和Agent请求的业务逻辑不同，如数据库中对于Agent提交不应记录submitter_id为用户。
+- Agent 查看题目可以不携带用户 Token，但提交和测评仍必须走登录、报名和 Agent 提交限制。查看和提交使用同一套权限组件，但不能把匿名查看规则扩展到提交链路。

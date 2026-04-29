@@ -79,3 +79,4 @@ contest_detail:contest:{contestId}   比赛详情聚合缓存，值为 ContestDe
 - `contest/{contestId}` 复用题目编排缓存，并批量查询题目标题，避免逐题查询。
 - 比赛相关缓存 key、TTL 读取、缓存加载和失效统一维护在 `ContestCacheService`。
 - `contestProblems` 更新采用全量覆盖，因此写入链路必须在方法末尾通过 `ContestCacheService` 失效 `contest_problem:contest:{contestId}` 和 `contest_detail:contest:{contestId}`。
+- 题面更新可能改变比赛详情中的题目标题摘要，Problem 模块会通过 `ContestCacheService.evictContestDetailsByProblemId(problemId)` 删除引用该题目的 `contest_detail:contest:{contestId}` 缓存。

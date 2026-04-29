@@ -14,6 +14,7 @@
 - 遵循项目现有的代码风格、命名规则、目录结构和模块划分方式，不要随意引入新的架构模式或抽象方式。
 - 优先复用项目中已有的工具函数、服务、组件、错误处理方式和响应格式。
 - 除非有明确必要性并说明原因，否则不要引入新的第三方依赖。
+- 不要为了极短的布尔判断、字符串拼接、单行转发或没有复用价值的业务逻辑新开 private 方法；这类逻辑应优先内联，除非抽取后能明显降低复杂度或表达关键业务约束。
 - 在制定实现计划和开始编码前，必须先阅读相关模块的文档、目录结构和已有代码，理解当前实现方式后再进行修改。
 - 修改代码时应保持改动范围聚焦，避免顺手重构、格式化无关文件或修改与当前任务无关的逻辑。
 - 如果在阅读或修改代码时发现原有实现存在明显漏洞、错误设计、安全风险、性能问题或潜在数据一致性问题，应在总结中明确指出，并说明影响范围和建议处理方式。
@@ -60,7 +61,7 @@
 - 若前端需要更具体的错误提示，应优先使用 `new BizException(code, message)`，而不是新增零散返回格式。
 - 异常与日志文案统一语言约定：`BizException` 的 `message` 一律使用英文；`RuntimeException` 及其他非业务异常的异常消息，以及直接写入日志的 `msg` / `message`，一律使用中文。
 - `AuthService` 是统一鉴权入口。需要登录、管理员、超级管理员校验时，优先复用 `checkLogin()`、`checkAdmin()`、`checkSuperAdmin()`。
-- Agent 请求与用户请求复用同一套后端鉴权逻辑，但不能因此绕过业务侧的 Agent 限制。涉及比赛题目和提交时，必须额外关注 `isAgent` 分支。
+- 题目查看权限允许匿名访问公开题目，以及处于正在进行比赛上下文中的 private 题；提交权限仍必须登录。Agent 请求不能绕过业务侧的提交限制，涉及比赛提交时必须额外关注 `isAgent` 分支。
 - 涉及数据库、对象存储、消息队列、分布式锁的逻辑时，优先在 `service` 层完成业务编排，不要把这类逻辑下沉到 `controller`。
 - 跨模块复用的基础设施能力统一优先放在 `infra` 包，例如 MinIO、后续公共 Redis/锁封装；模块内 `storage` 包只保留仍带有明确业务边界的本地文件处理或存储辅助逻辑。
 - `persistence` 层的写入职责默认按表拆分。单个 `*UpdateService` 应只负责一张主表或一类明确边界的关系表写入；若同时操作多张表，应拆成独立类，由 `service` 层负责统一编排，不要把多表写入逻辑长期混在同一个 persistence 服务里。
@@ -127,7 +128,12 @@
 - 题目导入与更新都依赖 zip 文件结构校验，相关规则统一维护在 `ProblemRequestChecker`。
 - 题目更新不是单纯数据库更新，还涉及临时目录、MinIO 新旧对象切换、版本号递增和 Redisson 锁。
 - 修改 `ProblemService.update()` 时，必须优先保证数据库与对象存储的一致性，不要破坏“新对象上传成功后再切换指针”的思路。
+- 题目缓存读取、题目标签缓存读取、题目缓存失效和题面 VO 构建统一维护在 `ProblemCacheService`；`ProblemService` 只负责权限、事务和写入编排。
+- 题面更新后必须通过 `ProblemCacheService` 失效 `problem:{problemId}` 与 `problem_tags:{problemId}`，并通过 `ContestCacheService` 失效引用该题目的比赛详情缓存。
+- 修改题目可见性只能由超级管理员执行，数据库写入放在 `ProblemUpdateService.updateVisibility()`，写入成功后必须失效题目缓存。
 - 题目权限判断优先查看 `ProblemPermissionChecker`，不要在多个接口里复制粘贴可见性规则。
+- 修改题目查看权限时，必须保持 public 题和正在进行比赛上下文中的 private 题可匿名查看；非管理员查看比赛 private 题时只能返回受限题面字段。
+- `ProblemPermissionChecker` 内简单的登录态、角色、可见性布尔组合应保持内联；不要为 `authService.isLogin() && isAdmin(authService.getLoginId())` 这类短判断单独抽 private 方法。
 
 ### 3.3 Contest
 

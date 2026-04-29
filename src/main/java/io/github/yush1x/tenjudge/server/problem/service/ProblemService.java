@@ -5,13 +5,12 @@ import io.github.yush1x.tenjudge.server.common.Code;
 import io.github.yush1x.tenjudge.server.contest.dto.ContestProblemDTO;
 import io.github.yush1x.tenjudge.server.contest.service.ContestCacheService;
 import io.github.yush1x.tenjudge.server.exception.BizException;
-import io.github.yush1x.tenjudge.server.infra.RedisService;
 import io.github.yush1x.tenjudge.server.problem.dto.ProblemQueryRequest;
 import io.github.yush1x.tenjudge.server.problem.dto.ProblemConfig;
 import io.github.yush1x.tenjudge.server.problem.dto.ProblemUpdateRequest;
+import io.github.yush1x.tenjudge.server.problem.dto.ProblemVisibilityUpdateRequest;
 import io.github.yush1x.tenjudge.server.problem.entity.Problem;
 import io.github.yush1x.tenjudge.server.problem.persistence.ProblemQueryService;
-import io.github.yush1x.tenjudge.server.problem.persistence.ProblemTagQueryService;
 import io.github.yush1x.tenjudge.server.problem.persistence.ProblemTagUpdateService;
 import io.github.yush1x.tenjudge.server.problem.persistence.ProblemUpdateService;
 import io.github.yush1x.tenjudge.server.problem.storage.FileService;
@@ -29,7 +28,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.nio.file.Path;
-import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -47,16 +45,18 @@ public class ProblemService {
     private final MinioService minioService;
     private final RedissonClient redissonClient;
     private final ProblemQueryService problemQueryService;
-    private final ProblemTagQueryService problemTagQueryService;
     private final ProblemPermissionChecker problemPermissionChecker;
-    private final RedisService redisService;
     private final ContestCacheService contestCacheService;
+    private final ProblemCacheService problemCacheService;
 
     @Value("${app.file-storage.temp}")
     private String tempDir;
 
-
-    // 通过id直接查找题目
+    /**
+     * 通过id直接查找题目
+     * @param problemId 题目id
+     * @return 题目信息
+     */
     public ProblemVO queryById(Long problemId) {
         return query(ProblemQueryRequest.builder()
                 .problemId(problemId)
@@ -65,7 +65,12 @@ public class ProblemService {
                 .build());
     }
 
-    // 通过比赛和索引查询题目
+    /**
+     * 通过比赛和索引查询题目
+     * @param contestId 比赛id
+     * @param index 题目在比赛中的索引
+     * @return 题目信息
+     */
     public ProblemVO queryInContest(Long contestId, String index) {
         if (index == null || index.isEmpty()) {
             throw new BizException(Code.PROBLEM_NOT_FOUND);
@@ -84,7 +89,11 @@ public class ProblemService {
         throw new BizException(Code.PROBLEM_NOT_FOUND);
     }
 
-    // Agent 通过 id 查询题目
+    /**
+     * Agent 通过 id 查询题目，比赛中题目访问受限
+     * @param problemId 题目id
+     * @return 题目信息
+     */
     public ProblemVO queryByAgent(Long problemId) {
         return query(ProblemQueryRequest.builder()
                 .problemId(problemId)
@@ -93,13 +102,17 @@ public class ProblemService {
                 .build());
     }
 
+    /**
+     * 鉴权并查询题目信息（底层，供其他方法调用）
+     * @param request 查询参数（problemId, contestId, isAgent）
+     * @return 题目信息
+     */
     public ProblemVO query(ProblemQueryRequest request) {
         Long problemId = request.getProblemId();
         Long contestId = request.getContestId();
         Boolean isAgent = request.getIsAgent();
 
-        Problem problem = redisService.get("problem:" + problemId, Problem.class,
-                Duration.ofHours(5), () -> getProblemWithReadLock(problemId));
+        Problem problem = problemCacheService.getProblem(problemId);
         if (problem == null) {
             throw new BizException(Code.PROBLEM_NOT_FOUND);
         }
@@ -108,93 +121,12 @@ public class ProblemService {
         problemPermissionChecker.checkAccessPermission(problemId, problem.getVisibility(), contestId, isAgent);
 
         if (problemPermissionChecker.hasFullAccess(problem.getVisibility())) {
-            @SuppressWarnings("unchecked") // 仅起到阻止警告的作用
-            List<String> tags = redisService.get("problem_tags:" + problemId, List.class,
-                    Duration.ofHours(5), () -> getProblemTagsWithReadLock(problemId));
-            return buildFullProblemVO(problem, tags);
+            List<String> tags = problemCacheService.getProblemTags(problemId);
+            return problemCacheService.buildFullProblemVO(problem, tags);
         }
 
-        return buildRestrictedProblemVO(problem);
+        return problemCacheService.buildRestrictedProblemVO(problem);
     }
-
-    private ProblemVO buildFullProblemVO(Problem problem, List<String> tags) {
-        return ProblemVO.builder()
-                .id(problem.getId())
-                .authorId(problem.getAuthorId())
-                .visibility(problem.getVisibility())
-                .checker(problem.getChecker())
-                .timeLimit(problem.getTimeLimit())
-                .memoryLimit(problem.getMemoryLimit())
-                .name(problem.getName())
-                .statement(problem.getStatement())
-                .solution(problem.getSolution())
-                .difficulty(problem.getDifficulty())
-                .version(problem.getVersion())
-                .tags(tags)
-                .build();
-    }
-
-    private ProblemVO buildRestrictedProblemVO(Problem problem) {
-        // 比赛中的 private 题允许参赛用户查看题面，但需要裁剪非做题必需字段，避免泄露额外提示信息。
-        return ProblemVO.builder()
-                .id(problem.getId())
-                .checker(problem.getChecker())
-                .timeLimit(problem.getTimeLimit())
-                .memoryLimit(problem.getMemoryLimit())
-                .name(problem.getName())
-                .statement(problem.getStatement())
-                .build();
-    }
-
-
-    // 根据题目id读取单个题目Problem表中的数据（读锁）
-    private Problem getProblemWithReadLock(Long problemId) {
-        RReadWriteLock rwlock = redissonClient.getReadWriteLock("lock:problem:" + problemId); // 使用锁名：lock:problem:{problemId}
-        RLock readLock = rwlock.readLock();
-
-        boolean locked = false;
-        try {
-            // 读取题目信息时加读锁
-            locked = readLock.tryLock(3, 1, TimeUnit.SECONDS);
-            if (!locked) {
-                throw new BizException(Code.TOO_MANY_REQUESTS, "当前题目正在被修改，请稍后再试");
-            }
-            return problemQueryService.select(problemId);
-
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException("Lock interrupted", e);
-        } finally {
-            if (locked && readLock.isHeldByCurrentThread()) {
-                readLock.unlock();
-            }
-        }
-    }
-
-    // 根据题目id读取单个题目Tags（读锁）
-    private List<String> getProblemTagsWithReadLock(Long problemId) {
-        RReadWriteLock rwlock = redissonClient.getReadWriteLock("lock:problem:" + problemId); // 使用锁名：lock:problem:{problemId}
-        RLock readLock = rwlock.readLock();
-
-        boolean locked = false;
-        try {
-            // 读取题目信息时加读锁
-            locked = readLock.tryLock(3, 1, TimeUnit.SECONDS);
-            if (!locked) {
-                throw new BizException(Code.TOO_MANY_REQUESTS, "当前题目正在被修改，请稍后再试");
-            }
-            return problemTagQueryService.selectTagsByProblemId(problemId);
-
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException("Lock interrupted", e);
-        } finally {
-            if (locked && readLock.isHeldByCurrentThread()) {
-                readLock.unlock();
-            }
-        }
-    }
-
 
 
     /**
@@ -407,6 +339,13 @@ public class ProblemService {
                 // 此时所有操作均已完成，此时仅记录日志但不抛出异常，防止数据库回滚造成与MinIO不一致
                 log.error("Failed to delete old problem data from MinIO: {}", e.getMessage(), e);
             }
+            try {
+                problemCacheService.evictProblemCaches(problemId);
+                contestCacheService.evictContestDetailsByProblemId(problemId);
+            } catch (Exception e) {
+                // 此时题目数据和 MinIO 对象已经切换完成，缓存删除失败只记录日志，避免回滚造成对象存储指针不一致。
+                log.error("题目更新后删除缓存失败，problemId: {}", problemId, e);
+            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new RuntimeException("Lock interrupted", e);
@@ -416,6 +355,45 @@ public class ProblemService {
             }
         }
 
+    }
+
+    /**
+     * 修改题目可见性
+     * @param request 题目 id 与目标可见性，只允许 super_admin 操作
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void updateVisibility(ProblemVisibilityUpdateRequest request) {
+        authService.checkSuperAdmin();
+        if (request == null || request.getId() == null
+                || (!"public".equals(request.getVisibility()) && !"private".equals(request.getVisibility()))) {
+            throw new BizException(Code.PROBLEM_REQUEST_INVALID, "visibility must be public or private");
+        }
+
+        Long problemId = request.getId();
+        RReadWriteLock rwlock = redissonClient.getReadWriteLock("lock:problem:" + problemId); // 使用锁名：lock:problem:{problemId}
+        RLock writeLock = rwlock.writeLock();
+
+        boolean locked = false;
+        try {
+            // 可见性会直接影响匿名访问边界，必须和题面更新共用写锁，避免缓存回源读到中间状态。
+            locked = writeLock.tryLock(3, 10, TimeUnit.SECONDS);
+            if (!locked) {
+                throw new BizException(Code.TOO_MANY_REQUESTS, "当前题目正在被修改，请稍后再试");
+            }
+
+            if (problemQueryService.select(problemId) == null) {
+                throw new BizException(Code.PROBLEM_NOT_FOUND);
+            }
+            problemUpdateService.updateVisibility(problemId, request.getVisibility());
+            problemCacheService.evictProblemCaches(problemId);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Lock interrupted", e);
+        } finally {
+            if (locked && writeLock.isHeldByCurrentThread()) {
+                writeLock.unlock();
+            }
+        }
     }
 
     private int countContinuousTestCaseNum(Path dir) {

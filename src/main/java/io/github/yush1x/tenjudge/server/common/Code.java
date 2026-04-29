@@ -24,6 +24,7 @@ public enum Code {
     SAVE_FILE_FAILED(20005, "save file failed"),
     TOO_MANY_REQUESTS(20006, "too many requests"),
     PROBLEM_NOT_FOUND(20007, "problem not found"),
+    PROBLEM_REQUEST_INVALID(20008, "problem request invalid"),
 
     CONTEST_REQUEST_INVALID(30001, "contest request invalid"),
     CONTEST_PROBLEM_INVALID(30002, "contest problem invalid"),

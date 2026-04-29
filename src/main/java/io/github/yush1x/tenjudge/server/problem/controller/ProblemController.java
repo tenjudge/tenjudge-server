@@ -2,6 +2,7 @@ package io.github.yush1x.tenjudge.server.problem.controller;
 
 import io.github.yush1x.tenjudge.server.common.Result;
 import io.github.yush1x.tenjudge.server.problem.dto.ProblemUpdateRequest;
+import io.github.yush1x.tenjudge.server.problem.dto.ProblemVisibilityUpdateRequest;
 import io.github.yush1x.tenjudge.server.problem.service.ProblemService;
 import io.github.yush1x.tenjudge.server.problem.vo.CreateProblemVO;
 import io.github.yush1x.tenjudge.server.problem.vo.ProblemVO;
@@ -32,6 +33,16 @@ public class ProblemController {
     )
     public Result<Void> update(ProblemUpdateRequest problemUpdateRequest, MultipartFile zipFile) {
         problemService.update(problemUpdateRequest, zipFile);
+        return Result.success();
+    }
+
+    @PatchMapping("/problem/visibility")
+    @Operation(
+        summary = "修改题目可见性",
+        description = "超级管理员将题目可见性切换为 public 或 private。修改后会失效题目缓存，避免匿名访问权限读到旧值。"
+    )
+    public Result<Void> updateVisibility(@RequestBody ProblemVisibilityUpdateRequest request) {
+        problemService.updateVisibility(request);
         return Result.success();
     }
 

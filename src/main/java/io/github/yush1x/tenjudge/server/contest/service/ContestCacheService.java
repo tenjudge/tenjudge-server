@@ -107,4 +107,11 @@ public class ContestCacheService {
         redisService.delete("contest_problem:contest:" + contestId);
         redisService.delete("contest_detail:contest:" + contestId);
     }
+
+    public void evictContestDetailsByProblemId(Long problemId) {
+        // 比赛详情缓存包含题目标题摘要；题面更新后按题目反查比赛并删除详情缓存，避免标题长期陈旧。
+        for (Long contestId : contestProblemQueryService.selectContestIdsByProblemId(problemId)) {
+            redisService.delete("contest_detail:contest:" + contestId);
+        }
+    }
 }

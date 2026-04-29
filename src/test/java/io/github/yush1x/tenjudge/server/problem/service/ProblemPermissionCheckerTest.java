@@ -21,7 +21,9 @@ import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -49,6 +51,8 @@ class ProblemPermissionCheckerTest {
     @BeforeEach
     void setUp() {
         when(authService.checkLogin()).thenReturn(1L);
+        when(authService.isLogin()).thenReturn(true);
+        when(authService.getLoginId()).thenReturn(1L);
         when(authService.getRole(1L)).thenReturn("user");
     }
 
@@ -64,13 +68,16 @@ class ProblemPermissionCheckerTest {
 
     @Test
     void checkAccessPermission_publicProblem_allowsDirectAccess() {
+        when(authService.isLogin()).thenReturn(false);
+
         assertDoesNotThrow(() -> problemPermissionChecker.checkAccessPermission(100L, "public", null, true));
 
         verifyNoInteractions(contestQueryService, contestProblemQueryService, contestParticipantQueryService);
     }
 
     @Test
-    void checkAccessPermission_privateProblemDuringContest_allowsUserWithoutRegistration() {
+    void checkAccessPermission_privateProblemDuringContest_allowsAnonymousWithoutRegistration() {
+        when(authService.isLogin()).thenReturn(false);
         when(contestQueryService.select(10L)).thenReturn(runningContest());
         when(contestProblemQueryService.exists(10L, 100L)).thenReturn(true);
 
@@ -82,16 +89,38 @@ class ProblemPermissionCheckerTest {
     }
 
     @Test
-    void checkAccessPermission_privateProblemAgent_throwsForbidden() {
+    void checkAccessPermission_privateProblemAgentDuringContest_allowsAccess() {
+        when(authService.isLogin()).thenReturn(false);
         when(contestQueryService.select(10L)).thenReturn(runningContest());
         when(contestProblemQueryService.exists(10L, 100L)).thenReturn(true);
 
+        assertDoesNotThrow(() -> problemPermissionChecker.checkAccessPermission(100L, "private", 10L, true));
+    }
+
+    @Test
+    void checkAccessPermission_privateProblemWithoutContest_throwsForbidden() {
+        when(authService.isLogin()).thenReturn(false);
+
         BizException ex = assertThrows(
                 BizException.class,
-                () -> problemPermissionChecker.checkAccessPermission(100L, "private", 10L, true)
+                () -> problemPermissionChecker.checkAccessPermission(100L, "private", null, false)
         );
 
         assertEquals(Code.FORBIDDEN, ex.getCode());
+    }
+
+    @Test
+    void hasFullAccess_publicProblem_allowsAnonymousFullAccess() {
+        when(authService.isLogin()).thenReturn(false);
+
+        assertTrue(problemPermissionChecker.hasFullAccess("public"));
+    }
+
+    @Test
+    void hasFullAccess_privateProblem_deniesAnonymousFullAccess() {
+        when(authService.isLogin()).thenReturn(false);
+
+        assertFalse(problemPermissionChecker.hasFullAccess("private"));
     }
 
     @Test

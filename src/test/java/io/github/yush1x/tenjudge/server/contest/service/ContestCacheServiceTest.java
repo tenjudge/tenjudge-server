@@ -146,6 +146,16 @@ class ContestCacheServiceTest {
         verify(redisService).delete("contest_detail:contest:10");
     }
 
+    @Test
+    void evictContestDetailsByProblemId_deletesOnlyContestDetailCaches() {
+        when(contestProblemQueryService.selectContestIdsByProblemId(1001L)).thenReturn(List.of(10L, 20L));
+
+        contestCacheService.evictContestDetailsByProblemId(1001L);
+
+        verify(redisService).delete("contest_detail:contest:10");
+        verify(redisService).delete("contest_detail:contest:20");
+    }
+
     private Contest contest(Long id) {
         Contest contest = new Contest();
         contest.setId(id);

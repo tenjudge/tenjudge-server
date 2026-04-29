@@ -6,11 +6,10 @@ import io.github.yush1x.tenjudge.server.contest.dto.ContestProblemDTO;
 import io.github.yush1x.tenjudge.server.contest.service.ContestCacheService;
 import io.github.yush1x.tenjudge.server.exception.BizException;
 import io.github.yush1x.tenjudge.server.infra.MinioService;
-import io.github.yush1x.tenjudge.server.infra.RedisService;
 import io.github.yush1x.tenjudge.server.problem.dto.ProblemQueryRequest;
+import io.github.yush1x.tenjudge.server.problem.dto.ProblemVisibilityUpdateRequest;
 import io.github.yush1x.tenjudge.server.problem.entity.Problem;
 import io.github.yush1x.tenjudge.server.problem.persistence.ProblemQueryService;
-import io.github.yush1x.tenjudge.server.problem.persistence.ProblemTagQueryService;
 import io.github.yush1x.tenjudge.server.problem.persistence.ProblemTagUpdateService;
 import io.github.yush1x.tenjudge.server.problem.persistence.ProblemUpdateService;
 import io.github.yush1x.tenjudge.server.problem.storage.FileService;
@@ -22,18 +21,17 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.redisson.api.RLock;
+import org.redisson.api.RReadWriteLock;
 import org.redisson.api.RedissonClient;
 
-import java.time.Duration;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -65,16 +63,13 @@ class ProblemServiceTest {
     private ProblemQueryService problemQueryService;
 
     @Mock
-    private ProblemTagQueryService problemTagQueryService;
-
-    @Mock
     private ProblemPermissionChecker problemPermissionChecker;
 
     @Mock
-    private RedisService redisService;
+    private ContestCacheService contestCacheService;
 
     @Mock
-    private ContestCacheService contestCacheService;
+    private ProblemCacheService problemCacheService;
 
     @InjectMocks
     private ProblemService problemService;
@@ -88,25 +83,29 @@ class ProblemServiceTest {
                 .contestId(null)
                 .isAgent(false)
                 .build();
+        ProblemVO expected = ProblemVO.builder()
+                .id(1L)
+                .authorId(2L)
+                .visibility("public")
+                .checker("special")
+                .timeLimit(1000)
+                .memoryLimit(256)
+                .name("A + B")
+                .statement("statement")
+                .solution("solution")
+                .difficulty(1200)
+                .version(3)
+                .tags(tags)
+                .build();
 
-        when(redisService.get(eq("problem:1"), eq(Problem.class), any(Duration.class), any())).thenReturn(problem);
+        when(problemCacheService.getProblem(1L)).thenReturn(problem);
         when(problemPermissionChecker.hasFullAccess("public")).thenReturn(true);
-        when(redisService.get(eq("problem_tags:1"), eq(List.class), any(Duration.class), any())).thenReturn(tags);
+        when(problemCacheService.getProblemTags(1L)).thenReturn(tags);
+        when(problemCacheService.buildFullProblemVO(problem, tags)).thenReturn(expected);
 
         ProblemVO result = problemService.query(request);
 
-        assertEquals(problem.getId(), result.getId());
-        assertEquals(problem.getAuthorId(), result.getAuthorId());
-        assertEquals(problem.getVisibility(), result.getVisibility());
-        assertEquals(problem.getChecker(), result.getChecker());
-        assertEquals(problem.getTimeLimit(), result.getTimeLimit());
-        assertEquals(problem.getMemoryLimit(), result.getMemoryLimit());
-        assertEquals(problem.getName(), result.getName());
-        assertEquals(problem.getStatement(), result.getStatement());
-        assertEquals(problem.getSolution(), result.getSolution());
-        assertEquals(problem.getDifficulty(), result.getDifficulty());
-        assertEquals(problem.getVersion(), result.getVersion());
-        assertEquals(tags, result.getTags());
+        assertEquals(expected, result);
         verify(problemPermissionChecker).checkAccessPermission(1L, "public", null, false);
     }
 
@@ -119,26 +118,24 @@ class ProblemServiceTest {
                 .contestId(10L)
                 .isAgent(false)
                 .build();
+        ProblemVO expected = ProblemVO.builder()
+                .id(1L)
+                .checker("special")
+                .timeLimit(1000)
+                .memoryLimit(256)
+                .name("A + B")
+                .statement("statement")
+                .build();
 
-        when(redisService.get(eq("problem:1"), eq(Problem.class), any(Duration.class), any())).thenReturn(problem);
+        when(problemCacheService.getProblem(1L)).thenReturn(problem);
         when(problemPermissionChecker.hasFullAccess("private")).thenReturn(false);
+        when(problemCacheService.buildRestrictedProblemVO(problem)).thenReturn(expected);
 
         ProblemVO result = problemService.query(request);
 
-        assertEquals(problem.getId(), result.getId());
-        assertEquals(problem.getChecker(), result.getChecker());
-        assertEquals(problem.getTimeLimit(), result.getTimeLimit());
-        assertEquals(problem.getMemoryLimit(), result.getMemoryLimit());
-        assertEquals(problem.getName(), result.getName());
-        assertEquals(problem.getStatement(), result.getStatement());
-        assertNull(result.getAuthorId());
-        assertNull(result.getVisibility());
-        assertNull(result.getSolution());
-        assertNull(result.getDifficulty());
-        assertNull(result.getVersion());
-        assertNull(result.getTags());
+        assertEquals(expected, result);
         verify(problemPermissionChecker).checkAccessPermission(1L, "private", 10L, false);
-        verify(redisService, never()).get(eq("problem_tags:1"), eq(List.class), any(Duration.class), any());
+        verify(problemCacheService, never()).getProblemTags(1L);
     }
 
     @Test
@@ -149,7 +146,7 @@ class ProblemServiceTest {
                 .isAgent(false)
                 .build();
 
-        when(redisService.get(eq("problem:1"), eq(Problem.class), any(Duration.class), any())).thenReturn(null);
+        when(problemCacheService.getProblem(1L)).thenReturn(null);
 
         BizException ex = assertThrows(BizException.class, () -> problemService.query(request));
 
@@ -164,9 +161,13 @@ class ProblemServiceTest {
         contestProblem.setProblemIndex("A");
 
         when(contestCacheService.getContestProblems(10L)).thenReturn(List.of(contestProblem));
-        when(redisService.get(eq("problem:1"), eq(Problem.class), any(Duration.class), any())).thenReturn(problem);
+        when(problemCacheService.getProblem(1L)).thenReturn(problem);
         when(problemPermissionChecker.hasFullAccess("public")).thenReturn(true);
-        when(redisService.get(eq("problem_tags:1"), eq(List.class), any(Duration.class), any())).thenReturn(List.of("dp"));
+        when(problemCacheService.getProblemTags(1L)).thenReturn(List.of("dp"));
+        when(problemCacheService.buildFullProblemVO(problem, List.of("dp"))).thenReturn(ProblemVO.builder()
+                .id(1L)
+                .name("A + B")
+                .build());
 
         ProblemVO result = problemService.queryInContest(10L, "A");
 
@@ -185,6 +186,65 @@ class ProblemServiceTest {
         BizException ex = assertThrows(BizException.class, () -> problemService.queryInContest(10L, "  A  "));
 
         assertEquals(Code.PROBLEM_NOT_FOUND, ex.getCode());
+    }
+
+    @Test
+    void updateVisibility_superAdminUpdatesVisibilityAndEvictsProblemCache() throws InterruptedException {
+        ProblemVisibilityUpdateRequest request = new ProblemVisibilityUpdateRequest();
+        request.setId(1L);
+        request.setVisibility("private");
+        Problem problem = buildProblem();
+        RReadWriteLock rwlock = org.mockito.Mockito.mock(RReadWriteLock.class);
+        RLock writeLock = org.mockito.Mockito.mock(RLock.class);
+
+        when(redissonClient.getReadWriteLock("lock:problem:1")).thenReturn(rwlock);
+        when(rwlock.writeLock()).thenReturn(writeLock);
+        when(writeLock.tryLock(3, 10, java.util.concurrent.TimeUnit.SECONDS)).thenReturn(true);
+        when(writeLock.isHeldByCurrentThread()).thenReturn(true);
+        when(problemQueryService.select(1L)).thenReturn(problem);
+
+        problemService.updateVisibility(request);
+
+        verify(authService).checkSuperAdmin();
+        verify(problemUpdateService).updateVisibility(1L, "private");
+        verify(problemCacheService).evictProblemCaches(1L);
+        verify(writeLock).unlock();
+    }
+
+    @Test
+    void updateVisibility_invalidVisibilityThrowsProblemRequestInvalid() {
+        ProblemVisibilityUpdateRequest request = new ProblemVisibilityUpdateRequest();
+        request.setId(1L);
+        request.setVisibility("hidden");
+
+        BizException ex = assertThrows(BizException.class, () -> problemService.updateVisibility(request));
+
+        assertEquals(Code.PROBLEM_REQUEST_INVALID, ex.getCode());
+        assertEquals("visibility must be public or private", ex.getMessage());
+        verify(authService).checkSuperAdmin();
+        verifyNoInteractions(problemUpdateService, problemCacheService);
+    }
+
+    @Test
+    void updateVisibility_missingProblemThrowsProblemNotFound() throws InterruptedException {
+        ProblemVisibilityUpdateRequest request = new ProblemVisibilityUpdateRequest();
+        request.setId(1L);
+        request.setVisibility("public");
+        RReadWriteLock rwlock = org.mockito.Mockito.mock(RReadWriteLock.class);
+        RLock writeLock = org.mockito.Mockito.mock(RLock.class);
+
+        when(redissonClient.getReadWriteLock("lock:problem:1")).thenReturn(rwlock);
+        when(rwlock.writeLock()).thenReturn(writeLock);
+        when(writeLock.tryLock(3, 10, java.util.concurrent.TimeUnit.SECONDS)).thenReturn(true);
+        when(writeLock.isHeldByCurrentThread()).thenReturn(true);
+        when(problemQueryService.select(1L)).thenReturn(null);
+
+        BizException ex = assertThrows(BizException.class, () -> problemService.updateVisibility(request));
+
+        assertEquals(Code.PROBLEM_NOT_FOUND, ex.getCode());
+        verify(problemUpdateService, never()).updateVisibility(1L, "public");
+        verify(problemCacheService, never()).evictProblemCaches(1L);
+        verify(writeLock).unlock();
     }
 
     @Test

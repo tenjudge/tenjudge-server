@@ -26,4 +26,12 @@ public class ProblemUpdateService {
         updateWrapper.eq(Problem::getId, id);
         problemMapper.update(problem, updateWrapper);
     }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void updateVisibility(Long id, String visibility) {
+        LambdaUpdateWrapper<Problem> updateWrapper = new LambdaUpdateWrapper<>();
+        updateWrapper.eq(Problem::getId, id)
+                .set(Problem::getVisibility, visibility);
+        problemMapper.update(null, updateWrapper);
+    }
 }

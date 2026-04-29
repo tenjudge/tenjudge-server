@@ -25,17 +25,15 @@ public class ProblemPermissionChecker {
 
     // 在验证过是否有访问题目权限后，判断是否有访问完整题面的权限
     public boolean hasFullAccess(String visibility) {
-        Long userId = authService.checkLogin();
-        return isAdmin(userId) || "public".equals(visibility);
+        return "public".equals(visibility) || (authService.isLogin() && isAdmin(authService.getLoginId()));
     }
 
     public void checkAccessPermission(Long problemId, String visibility, Long contestId, Boolean isAgent) {
-        Long userId = authService.checkLogin();
-        if (isAdmin(userId)) {
+        if ("public".equals(visibility)) {
             return;
         }
 
-        if ("public".equals(visibility)) {
+        if (authService.isLogin() && isAdmin(authService.getLoginId())) {
             return;
         }
         if (!"private".equals(visibility)) {
@@ -43,11 +41,8 @@ public class ProblemPermissionChecker {
             throw new BizException(Code.FORBIDDEN);
         }
 
-        // private 题访问不要求报名，但必须处于比赛进行中且普通用户的 Agent 不能访问。
+        // private 题查看不要求登录或报名，但必须来自正在进行的比赛上下文，其他 private 题仅管理员可查看。
         validatePrivateProblemContestContext(problemId, contestId);
-        if (Boolean.TRUE.equals(isAgent)) {
-            throw new BizException(Code.FORBIDDEN);
-        }
     }
 
     public void checkSubmitPermission(Long problemId, String visibility, Long contestId, Boolean isAgent) {
