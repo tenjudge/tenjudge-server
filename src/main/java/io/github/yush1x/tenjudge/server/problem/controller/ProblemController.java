@@ -36,9 +36,6 @@ public class ProblemController {
     }
 
 
-
-
-
     @GetMapping("/problem/{id}")
     @Operation(
         summary = "按题目 ID 查询题目",

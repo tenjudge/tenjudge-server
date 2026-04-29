@@ -44,6 +44,10 @@ public class AuthService {
         return stpService.getLoginIdAsLong();
     }
 
+    public boolean isLogin() {
+        return stpService.isLogin();
+    }
+
     public String getRole(Long id) {
         return authChecker.getRole(id);
     }

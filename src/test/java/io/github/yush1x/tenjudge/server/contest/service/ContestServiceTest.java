@@ -16,6 +16,7 @@ import io.github.yush1x.tenjudge.server.contest.persistence.ContestParticipantUp
 import io.github.yush1x.tenjudge.server.contest.persistence.ContestProblemUpdateService;
 import io.github.yush1x.tenjudge.server.contest.persistence.ContestQueryService;
 import io.github.yush1x.tenjudge.server.contest.persistence.ContestUpdateService;
+import io.github.yush1x.tenjudge.server.contest.vo.ContestDetailVO;
 import io.github.yush1x.tenjudge.server.contest.vo.CreateContestVO;
 import io.github.yush1x.tenjudge.server.exception.BizException;
 import io.github.yush1x.tenjudge.server.problem.entity.Problem;
@@ -51,6 +52,7 @@ class ContestServiceTest {
     private UserQueryService userQueryService;
     private ContestParticipantQueryService contestParticipantQueryService;
     private ContestParticipantUpdateService contestParticipantUpdateService;
+    private ContestCacheService contestCacheService;
     private ContestService contestService;
 
     @BeforeEach
@@ -63,6 +65,7 @@ class ContestServiceTest {
         userQueryService = mock(UserQueryService.class);
         contestParticipantQueryService = mock(ContestParticipantQueryService.class);
         contestParticipantUpdateService = mock(ContestParticipantUpdateService.class);
+        contestCacheService = mock(ContestCacheService.class);
         contestService = new ContestService(
                 authService,
                 new ContestRequestChecker(),
@@ -72,7 +75,8 @@ class ContestServiceTest {
                 problemQueryService,
                 userQueryService,
                 contestParticipantQueryService,
-                contestParticipantUpdateService
+                contestParticipantUpdateService,
+                contestCacheService
         );
         when(authService.checkAdmin()).thenReturn(1L);
         when(authService.checkLogin()).thenReturn(1L);
@@ -131,6 +135,7 @@ class ContestServiceTest {
         ArgumentCaptor<List<ContestProblem>> contestProblemsCaptor = ArgumentCaptor.forClass(List.class);
         verify(contestUpdateService).update(eq(1L), contestCaptor.capture());
         verify(contestProblemUpdateService).replaceByContestId(eq(1L), contestProblemsCaptor.capture());
+        verify(contestCacheService).evictContestCaches(1L);
 
         Contest updatedContest = contestCaptor.getValue();
         assertEquals("Weekly Round 1", updatedContest.getName());
@@ -255,6 +260,68 @@ class ContestServiceTest {
         assertDoesNotThrow(() -> contestService.registerContest(validRegisterRequest()));
     }
 
+    @Test
+    void queryContestDetail_contestNotFound_throwsBizException() {
+        when(contestCacheService.getContestDetail(1L)).thenReturn(null);
+
+        BizException ex = assertThrows(BizException.class, () -> contestService.queryContestDetail(1L));
+
+        assertEquals(Code.CONTEST_NOT_FOUND, ex.getCode());
+    }
+
+    @Test
+    void queryContestDetail_notStartedAndAnonymous_throwsBizException() {
+        when(contestCacheService.getContestDetail(1L))
+                .thenReturn(contestDetail(1L, LocalDateTime.now().plusHours(1), LocalDateTime.now().plusHours(2)));
+        when(authService.isLogin()).thenReturn(false);
+
+        BizException ex = assertThrows(BizException.class, () -> contestService.queryContestDetail(1L));
+
+        assertEquals(Code.CONTEST_NOT_STARTED, ex.getCode());
+    }
+
+    @Test
+    void queryContestDetail_notStartedAndAdmin_returnsContestDetail() {
+        when(contestCacheService.getContestDetail(1L))
+                .thenReturn(contestDetail(1L, LocalDateTime.now().plusHours(1), LocalDateTime.now().plusHours(2)));
+        when(authService.isLogin()).thenReturn(true);
+        when(authService.getLoginId()).thenReturn(1L);
+        when(authService.getRole(1L)).thenReturn("admin");
+
+        ContestDetailVO result = contestService.queryContestDetail(1L);
+
+        assertEquals(1L, result.getId());
+        assertEquals("Weekly Round 1", result.getName());
+    }
+
+    @Test
+    void queryContestDetail_started_returnsSortedProblemsWithTitles() {
+        ContestDetailVO cachedContestDetail = contestDetail(1L, LocalDateTime.now().minusHours(1), LocalDateTime.now().plusHours(1));
+        cachedContestDetail.setProblems(List.of(
+                io.github.yush1x.tenjudge.server.contest.vo.ContestProblemBriefVO.builder()
+                        .id(1001L)
+                        .index("A")
+                        .title("A + B Problem")
+                        .build(),
+                io.github.yush1x.tenjudge.server.contest.vo.ContestProblemBriefVO.builder()
+                        .id(1002L)
+                        .index("B")
+                        .title("Binary Search")
+                        .build()
+        ));
+        when(contestCacheService.getContestDetail(1L)).thenReturn(cachedContestDetail);
+
+        ContestDetailVO result = contestService.queryContestDetail(1L);
+
+        assertEquals(2, result.getProblems().size());
+        assertEquals(1001L, result.getProblems().get(0).getId());
+        assertEquals("A", result.getProblems().get(0).getIndex());
+        assertEquals("A + B Problem", result.getProblems().get(0).getTitle());
+        assertEquals(1002L, result.getProblems().get(1).getId());
+        assertEquals("B", result.getProblems().get(1).getIndex());
+        assertEquals("Binary Search", result.getProblems().get(1).getTitle());
+    }
+
     private CreateContestRequest validCreateRequest() {
         CreateContestRequest request = new CreateContestRequest();
         request.setName("  Weekly Round 1  ");
@@ -269,6 +336,27 @@ class ContestServiceTest {
         Problem problem = new Problem();
         problem.setId(id);
         return problem;
+    }
+
+    private Contest contest(Long id, LocalDateTime startTime, LocalDateTime endTime) {
+        Contest contest = new Contest();
+        contest.setId(id);
+        contest.setName("Weekly Round 1");
+        contest.setStartTime(startTime);
+        contest.setEndTime(endTime);
+        contest.setPenaltyPerWrong(20);
+        return contest;
+    }
+
+    private ContestDetailVO contestDetail(Long id, LocalDateTime startTime, LocalDateTime endTime) {
+        return ContestDetailVO.builder()
+                .id(id)
+                .name("Weekly Round 1")
+                .startTime(startTime)
+                .endTime(endTime)
+                .penaltyPerWrong(20)
+                .problems(List.of())
+                .build();
     }
 
     private UpdateContestRequest validUpdateRequest() {

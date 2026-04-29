@@ -29,6 +29,7 @@ public enum Code {
     CONTEST_PROBLEM_INVALID(30002, "contest problem invalid"),
     CONTEST_NOT_FOUND(30003, "contest not found"),
     CONTEST_ENDED(30004, "contest ended"),
+    CONTEST_NOT_STARTED(30005, "contest not started"),
 
     SUBMIT_REQUEST_INVALID(40001, "submit request invalid"),
 

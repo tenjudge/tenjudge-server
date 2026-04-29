@@ -16,9 +16,10 @@ import io.github.yush1x.tenjudge.server.contest.persistence.ContestParticipantUp
 import io.github.yush1x.tenjudge.server.contest.persistence.ContestProblemUpdateService;
 import io.github.yush1x.tenjudge.server.contest.persistence.ContestQueryService;
 import io.github.yush1x.tenjudge.server.contest.persistence.ContestUpdateService;
-import io.github.yush1x.tenjudge.server.problem.entity.Problem;
+import io.github.yush1x.tenjudge.server.contest.vo.ContestDetailVO;
 import io.github.yush1x.tenjudge.server.contest.vo.CreateContestVO;
 import io.github.yush1x.tenjudge.server.exception.BizException;
+import io.github.yush1x.tenjudge.server.problem.entity.Problem;
 import io.github.yush1x.tenjudge.server.problem.persistence.ProblemQueryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
@@ -44,6 +45,7 @@ public class ContestService {
     private final UserQueryService userQueryService;
     private final ContestParticipantQueryService contestParticipantQueryService;
     private final ContestParticipantUpdateService contestParticipantUpdateService;
+    private final ContestCacheService contestCacheService;
 
 
     // 创建比赛
@@ -120,6 +122,7 @@ public class ContestService {
         contestUpdateService.update(contestId, contest);
 
         contestProblemUpdateService.replaceByContestId(contestId, contestProblems); // 题目编排采用全量覆盖：先删旧数据，再插入新数据
+        contestCacheService.evictContestCaches(contestId); // 方法末尾统一删除比赛相关缓存，后续读取会重新回源
     }
 
     // 报名比赛
@@ -159,5 +162,28 @@ public class ContestService {
         } catch (DuplicateKeyException ignored) {
             // 并发重复报名由联合主键兜底，保持接口幂等成功。
         }
+    }
+
+    // 查询比赛详情，赛前仅管理员/超级管理员可以查看题目列表
+    public ContestDetailVO queryContestDetail(Long contestId) {
+        ContestDetailVO contestDetail = contestCacheService.getContestDetail(contestId);
+        if (contestDetail == null) {
+            throw new BizException(Code.CONTEST_NOT_FOUND);
+        }
+
+        LocalDateTime startTime = contestDetail.getStartTime();
+        if (startTime != null && LocalDateTime.now().isBefore(startTime)) {
+            boolean admin = false;
+            if (authService.isLogin()) {
+                String role = authService.getRole(authService.getLoginId());
+                admin = "admin".equals(role) || "super_admin".equals(role);
+            }
+            if (!admin) {
+                // 赛前题单是比赛边界，公开接口仍需要阻止普通用户和游客提前看到题目标题。
+                throw new BizException(Code.CONTEST_NOT_STARTED);
+            }
+        }
+
+        return contestDetail;
     }
 }

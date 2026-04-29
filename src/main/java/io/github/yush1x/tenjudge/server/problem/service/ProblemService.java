@@ -108,6 +108,7 @@ public class ProblemService {
         problemPermissionChecker.checkAccessPermission(problemId, problem.getVisibility(), contestId, isAgent);
 
         if (problemPermissionChecker.hasFullAccess(problem.getVisibility())) {
+            @SuppressWarnings("unchecked") // 仅起到阻止警告的作用
             List<String> tags = redisService.get("problem_tags:" + problemId, List.class,
                     Duration.ofHours(5), () -> getProblemTagsWithReadLock(problemId));
             return buildFullProblemVO(problem, tags);

@@ -5,6 +5,7 @@ import io.github.yush1x.tenjudge.server.contest.dto.CreateContestRequest;
 import io.github.yush1x.tenjudge.server.contest.dto.RegisterContestRequest;
 import io.github.yush1x.tenjudge.server.contest.dto.UpdateContestRequest;
 import io.github.yush1x.tenjudge.server.contest.service.ContestService;
+import io.github.yush1x.tenjudge.server.contest.vo.ContestDetailVO;
 import io.github.yush1x.tenjudge.server.contest.vo.CreateContestVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -14,6 +15,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -26,6 +29,20 @@ import org.springframework.web.bind.annotation.RestController;
 public class ContestController {
 
     private final ContestService contestService;
+
+    @GetMapping("/{contestId}")
+    @Operation(
+        summary = "查询比赛详情",
+        description = "根据比赛 ID 查询比赛元数据和题目列表。接口不要求登录；比赛开始前仅管理员/超级管理员可以查看，"
+            + "普通用户和游客会返回 CONTEST_NOT_STARTED。",
+        operationId = "queryContestDetail"
+    )
+    public Result<ContestDetailVO> queryDetail(
+        @Parameter(description = "比赛 ID", required = true)
+        @PathVariable Long contestId
+    ) {
+        return Result.success(contestService.queryContestDetail(contestId));
+    }
 
     @PostMapping
     @Operation(

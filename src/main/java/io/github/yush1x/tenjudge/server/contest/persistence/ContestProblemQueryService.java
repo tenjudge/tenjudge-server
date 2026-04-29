@@ -23,7 +23,8 @@ public class ContestProblemQueryService {
 
     public List<ContestProblem> selectByContestId(Long contestId) {
         LambdaQueryWrapper<ContestProblem> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(ContestProblem::getContestId, contestId);
+        wrapper.eq(ContestProblem::getContestId, contestId)
+                .orderByAsc(ContestProblem::getProblemIndex);
         return contestProblemMapper.selectList(wrapper);
     }
 }

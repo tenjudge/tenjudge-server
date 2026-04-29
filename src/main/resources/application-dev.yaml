@@ -49,3 +49,6 @@ app:
     role-cache-expire: 3600 # 角色权限缓存过期时间（单位：秒）
   file-storage:
     temp: "/Users/shaun/Workspace/Data/TenJudge/temp"
+  cache-ttl:
+    contest-problem: 5h # 比赛题目编排缓存 TTL
+    contest-detail: 60s # 比赛详情聚合缓存 TTL

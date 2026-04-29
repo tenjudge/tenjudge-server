@@ -26,6 +26,14 @@
 - 只要比赛未结束即可报名；当 `now >= endTime` 时禁止报名并返回 `CONTEST_ENDED`。
 - 重复报名按幂等成功处理，包括并发重复请求。
 
+### 查询比赛详情规则
+- 接口为 `GET /contest/{contestId}`，不要求登录。
+- 返回对象为 `ContestDetailVO`，包含比赛元数据和 `ContestProblemBriefVO` 题目摘要列表。
+- 题目摘要列表字段为 `id`、`index`、`title`，按 `problemIndex` 字典序排序。
+- 比赛不存在时返回 `CONTEST_NOT_FOUND`。
+- 比赛开始前仅管理员/超级管理员可以查看，普通用户和游客返回 `CONTEST_NOT_STARTED`。
+- 比赛开始后和结束后均允许查看。
+
 ## 数据库
 `contest` 表：
 ```
@@ -58,11 +66,16 @@ problem_results 榜单题目结果快照，jsonb 类型，使用 problemId 作�
 ## Redis
 ```
 contest_problem:contest:{contestId}  整场比赛的题目编排缓存，值为 ContestProblemDTO 列表
+contest_detail:contest:{contestId}   比赛详情聚合缓存，值为 ContestDetailVO
 ```
+
+缓存 TTL 统一配置在 `app.cache-ttl`，当前使用 `contest-problem` 与 `contest-detail`；本地开发配置位于 `application-dev.yaml`。
 
 ## 实现说明
 
 ### 题目编排缓存一致性
 - `problem/queryInContest` 会先通过 `contest_problem` 将 `problemIndex` 映射为真实 `problemId`，再进入题目查询流程。
 - 该题目编排列表按比赛维度缓存到 Redis，降低比赛中按题号查题时的数据库压力。
-- `contestProblems` 更新采用全量覆盖，因此写入链路必须在事务提交后失效 `contest_problem:contest:{contestId}`，避免旧编排在事务未提交时被并发查询重新回填。
+- `contest/{contestId}` 复用题目编排缓存，并批量查询题目标题，避免逐题查询。
+- 比赛相关缓存 key、TTL 读取、缓存加载和失效统一维护在 `ContestCacheService`。
+- `contestProblems` 更新采用全量覆盖，因此写入链路必须在方法末尾通过 `ContestCacheService` 失效 `contest_problem:contest:{contestId}` 和 `contest_detail:contest:{contestId}`。

@@ -134,7 +134,11 @@
 - 创建和更新比赛前都应先走 `ContestRequestChecker`，保持时间字段和题目编排规则一致。
 - `contest.penalty_per_wrong` 为数据库非空字段，默认值为 `0`；请求中的 `penaltyPerWrong` 允许为空，但 service 入库前必须兜底写成 `0`。
 - `contestProblems` 当前采用全量覆盖策略，修改更新逻辑时不要误改成局部 patch 行为，除非同步更新文档和接口约定。
-- `problem/queryInContest` 会通过 Redis 缓存整场比赛的题目编排列表（包含 `problemId` 与 `problemIndex`）；修改 `contest_problem` 写入链路时，必须同步处理该缓存，并在事务提交后失效，避免旧编排被并发读请求回填。
+- `contest` 模块内所有 Redis 缓存 key、TTL 读取、缓存加载与失效逻辑统一收敛到 `ContestCacheService`；`persistence` 层不要直接依赖 `RedisService`。
+- `problem/queryInContest` 会通过 Redis 缓存整场比赛的题目编排列表（包含 `problemId` 与 `problemIndex`）；修改 `contest_problem` 写入链路时，必须通过 `ContestCacheService` 统一删除相关缓存。
+- `contest/{contestId}` 会缓存比赛详情聚合结果（比赛元数据与题目标题摘要），TTL 统一从 `app.cache-ttl.<key>` 读取；本地开发 TTL 写在 `application-dev.yaml`，新增缓存 key 时必须同步更新根 `README.md` 与模块 README。
+- 修改比赛元数据或题目编排写入链路时，必须在方法末尾同步失效 `contest_problem:contest:{contestId}` 与 `contest_detail:contest:{contestId}`。
+- 不要为了极短的字符串拼接、单行转发或没有复用价值的逻辑新开 private 方法；这类代码优先保持内联，除非能明显降低复杂度或表达业务约束。
 - 比赛题目编排依赖题目真实存在性校验，不能只依赖数据库约束兜底；同一场比赛内 `problemId` 和 `problemIndex` 都必须唯一。
 - `contest_participant.problem_results` 使用 `problemId` 作为 `jsonb` key；修改榜单聚合逻辑时，需同时保证 Java 强类型结构与 PostgreSQL 存储结构一致。
 
