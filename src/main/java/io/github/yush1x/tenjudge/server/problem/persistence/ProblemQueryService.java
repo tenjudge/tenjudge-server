@@ -27,4 +27,14 @@ public class ProblemQueryService {
         }
         return problemMapper.selectByIds(ids);
     }
+
+    public List<Problem> selectNamesByIds(Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        LambdaQueryWrapper<Problem> wrapper = new LambdaQueryWrapper<>();
+        wrapper.select(Problem::getId, Problem::getName)
+                .in(Problem::getId, ids);
+        return problemMapper.selectList(wrapper);
+    }
 }

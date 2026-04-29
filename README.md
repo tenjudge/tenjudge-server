@@ -24,9 +24,11 @@ Java 21、Spring Boot 4、Maven、MyBatis-Plus、PostgreSQL、Redis、Redisson�
 
 缓存相关：
 - `user:role:{userId}` 用于用户角色缓存
-- `problem:{problemId}` 用于Problem表的缓存
-- `problem_tags:{problemId}` 用于查询一个题目所有tag的缓存
-- 
+- `problem:{problemId}` 用于 `problem` 表缓存
+- `problem_tags:{problemId}` 用于查询一个题目所有 tag 的缓存
+- `contest_problem:contest:{contestId}` 用于比赛题目编排缓存
+- `contest_detail:contest:{contestId}` 用于比赛详情聚合缓存，包含比赛元数据与题目标题摘要
+
 锁相关：
 - `lock:problem:{problemId}` 用于题目数据更新的分布式读写锁
 - `lock:cache:{cacheKey}` 用于防止缓存击穿的分布式锁
