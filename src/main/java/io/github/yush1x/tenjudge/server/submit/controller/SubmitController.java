@@ -3,6 +3,7 @@ package io.github.yush1x.tenjudge.server.submit.controller;
 import io.github.yush1x.tenjudge.server.common.Result;
 import io.github.yush1x.tenjudge.server.submit.dto.JudgeRequest;
 import io.github.yush1x.tenjudge.server.submit.service.SubmitService;
+import io.github.yush1x.tenjudge.server.submit.vo.SubmitJudgeVO;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -30,7 +31,7 @@ public class SubmitController {
             + " problemId、language、code、isAgent 为必填字段。",
         operationId = "submitJudge"
     )
-    public Result<Void> judge(
+    public Result<SubmitJudgeVO> judge(
         @org.springframework.web.bind.annotation.RequestBody
         @RequestBody(
             required = true,
@@ -67,8 +68,7 @@ public class SubmitController {
         @Parameter(description = "测评提交请求")
         JudgeRequest judgeRequest
     ) {
-        submitService.judge(judgeRequest);
-        return Result.success();
+        return Result.success(submitService.judge(judgeRequest));
     }
 
 }

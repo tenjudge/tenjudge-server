@@ -11,6 +11,7 @@ import io.github.yush1x.tenjudge.server.submit.dto.JudgeRequest;
 import io.github.yush1x.tenjudge.server.submit.entity.Submission;
 import io.github.yush1x.tenjudge.server.submit.mq.Producer;
 import io.github.yush1x.tenjudge.server.submit.persistence.SubmissionUpdateService;
+import io.github.yush1x.tenjudge.server.submit.vo.SubmitJudgeVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,7 +29,7 @@ public class SubmitService {
     private final SubmitRequestChecker submitRequestChecker;
 
     @Transactional(rollbackFor = Exception.class)
-    public void judge(JudgeRequest judgeRequest) {
+    public SubmitJudgeVO judge(JudgeRequest judgeRequest) {
         // 先拦截缺字段和非法枚举，避免后续鉴权、落库、对象存储链路处理脏请求。
         submitRequestChecker.checkJudgeRequest(judgeRequest);
 
@@ -62,6 +63,9 @@ public class SubmitService {
         }
 
         producer.send(submission.getId());
+        SubmitJudgeVO submitJudgeVO = new SubmitJudgeVO();
+        submitJudgeVO.setSubmissionId(submission.getId());
+        return submitJudgeVO;
     }
 
 
