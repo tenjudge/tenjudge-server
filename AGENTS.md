@@ -60,6 +60,7 @@
 - 当前全局异常规范保持现状：`BizException` 统一返回业务码与业务消息，其他异常统一记为系统异常并返回 `Code.SERVER_ERROR`。后续不要再扩展额外异常处理分支。
 - 若前端需要更具体的错误提示，应优先使用 `new BizException(code, message)`，而不是新增零散返回格式。
 - 异常与日志文案统一语言约定：`BizException` 的 `message` 一律使用英文；`RuntimeException` 及其他非业务异常的异常消息，以及直接写入日志的 `msg` / `message`，一律使用中文。
+- 跨域策略统一收敛在 `config/CorsConfig.java` 的全局 Spring MVC 配置中维护；默认不要在单个 Controller 上追加 `@CrossOrigin`，除非明确需要为少数接口设置不同策略。
 - `AuthService` 是统一鉴权入口。需要登录、管理员、超级管理员校验时，优先复用 `checkLogin()`、`checkAdmin()`、`checkSuperAdmin()`。
 - 题目查看权限允许匿名访问公开题目，以及处于正在进行比赛上下文中的 private 题；提交权限仍必须登录。Agent 请求不能绕过业务侧的提交限制，涉及比赛提交时必须额外关注 `isAgent` 分支。
 - 涉及数据库、对象存储、消息队列、分布式锁的逻辑时，优先在 `service` 层完成业务编排，不要把这类逻辑下沉到 `controller`。
@@ -115,6 +116,7 @@
 - `infra/RedisService.java`：跨模块复用的 Redis 缓存封装，负责按 TTL 名称读写缓存、空值缓存、缓存击穿锁和删除缓存。
 - `config/AppCacheProperties.java`：Redis 缓存 TTL 集中配置与默认值入口。
 - `config/RedisConfig.java`：RedisTemplate 序列化和 Spring CacheManager 配置。
+- `config/CorsConfig.java`：全局跨域配置，统一处理预检请求、允许方法和请求头，不在 Controller 分散配置。
 - `auth/service/AuthService.java`：统一鉴权能力入口。
 - `problem/service/ProblemService.java`：题目导入、更新、锁与对象存储一致性核心。
 - `problem/storage/FileService.java`：题目 zip、本地临时目录和文本文件处理。

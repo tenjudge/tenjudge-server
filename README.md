@@ -50,3 +50,6 @@ Redis 缓存 TTL 的实现方式统一写在这里：TTL 配置集中在 `app.ca
 - 返回空数据时使用 `Result.success()`。
 - 业务失败统一抛 `BizException`，并绑定 `Code`。
 - 非业务异常由全局异常处理器兜底，统一返回系统异常。
+
+## 跨域
+项目通过 `config/CorsConfig.java` 统一配置全局 CORS。当前开发期默认放开所有来源、常用 HTTP 方法和请求头，便于前端开发服务器联调；登录态通过请求头 `tenjudge-token` 传递，不依赖 Cookie。除非个别接口确实需要特殊策略，否则不要在 Controller 上单独添加 `@CrossOrigin`。
