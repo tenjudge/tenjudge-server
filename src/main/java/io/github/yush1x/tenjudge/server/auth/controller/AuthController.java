@@ -7,31 +7,141 @@ import io.github.yush1x.tenjudge.server.auth.vo.LoginVO;
 import io.github.yush1x.tenjudge.server.auth.vo.RegisterVO;
 import io.github.yush1x.tenjudge.server.common.Result;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor
-@Tag(name = "Auth", description = "认证、登录与注册接口")
+@Tag(
+    name = "Auth",
+    description = "认证、登录与注册接口。所有响应都包在 Result 中：code 为 0 表示成功，非 0 表示业务失败。"
+        + "登录成功后，前端应使用返回的 tokenName 作为请求头名称、tokenValue 作为请求头值访问需要登录的接口。"
+)
 public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/register")
-    @Operation(summary = "注册用户", description = "注册用户，返回用户id。管理员和超级管理员需要管理员权限才能注册")
-    public Result<RegisterVO> register(@RequestBody RegisterRequest registerRequest) {
+    @Operation(
+        summary = "注册用户",
+        description = "创建新用户并返回用户 ID。role 只能是 user、admin、super_admin；普通用户注册 role=user 不需要登录。"
+            + "注册 admin 或 super_admin 时，必须携带当前超级管理员 token，否则返回 UNAUTHORIZED 或 FORBIDDEN。"
+            + "用户名必须以字母开头，长度 3-20，只允许字母、数字、下划线；密码长度 8-20；邮箱必须唯一且格式合法。"
+            + "常见业务失败码：USERNAME_INVALID、PASSWORD_INVALID、EMAIL_INVALID、ROLE_INVALID、"
+            + "USERNAME_ALREADY_EXISTS、EMAIL_ALREADY_EXISTS、UNAUTHORIZED、FORBIDDEN、REGISTER_FAILED。",
+        operationId = "registerUser",
+        parameters = @Parameter(
+            name = "tenjudge-token",
+            in = ParameterIn.HEADER,
+            description = "仅注册 admin 或 super_admin 时需要。值为登录接口返回的 tokenValue。",
+            required = false
+        )
+    )
+    public Result<RegisterVO> register(
+        @org.springframework.web.bind.annotation.RequestBody
+        @RequestBody(
+            required = true,
+            description = "注册请求体",
+            content = @Content(
+                schema = @Schema(implementation = RegisterRequest.class),
+                examples = {
+                    @ExampleObject(
+                        name = "注册普通用户",
+                        value = """
+                                {
+                                    "username": "alice_oj",
+                                    "password": "plainPass123",
+                                    "role": "user",
+                                    "email": "alice@example.com"
+                                }
+                                """
+                    ),
+                    @ExampleObject(
+                        name = "超级管理员创建管理员",
+                        description = "请求头需携带 tenjudge-token: {tokenValue}",
+                        value = """
+                                {
+                                    "username": "problem_admin",
+                                    "password": "plainPass123",
+                                    "role": "admin",
+                                    "email": "admin@example.com"
+                                }
+                                """
+                    )
+                }
+            )
+        )
+        @Parameter(description = "注册请求")
+        RegisterRequest registerRequest
+    ) {
         return Result.success(authService.register(registerRequest));
     }
 
     @PostMapping("/login")
-    @Operation(summary = "登录", description = "登录，返回用户完整信息和token")
-    public Result<LoginVO> login(@RequestBody LoginRequest loginRequest) {
+    @Operation(
+        summary = "登录",
+        description = "使用用户名或邮箱登录，成功后返回 tokenName、tokenValue 和当前用户信息。"
+            + "后续需要登录的接口应在请求头中传入：{tokenName}: {tokenValue}。"
+            + "账号不存在、密码错误、account 或 password 为空时均返回 LOGIN_FAILED，不区分具体原因。",
+        operationId = "login"
+    )
+    public Result<LoginVO> login(
+        @org.springframework.web.bind.annotation.RequestBody
+        @RequestBody(
+            required = true,
+            description = "登录请求体。account 可以是用户名或邮箱。",
+            content = @Content(
+                schema = @Schema(implementation = LoginRequest.class),
+                examples = {
+                    @ExampleObject(
+                        name = "用户名登录",
+                        value = """
+                                {
+                                    "account": "alice_oj",
+                                    "password": "plainPass123"
+                                }
+                                """
+                    ),
+                    @ExampleObject(
+                        name = "邮箱登录",
+                        value = """
+                                {
+                                    "account": "alice@example.com",
+                                    "password": "plainPass123"
+                                }
+                                """
+                    )
+                }
+            )
+        )
+        @Parameter(description = "登录请求")
+        LoginRequest loginRequest
+    ) {
         return Result.success(authService.login(loginRequest));
     }
 
     @DeleteMapping("/logout")
-    @Operation(summary = "登出")
+    @Operation(
+        summary = "登出",
+        description = "注销当前 token 对应的登录态。前端应携带登录接口返回的 token 请求头，默认请求头名称为 tenjudge-token。",
+        operationId = "logout",
+        parameters = @Parameter(
+            name = "tenjudge-token",
+            in = ParameterIn.HEADER,
+            description = "登录接口返回的 tokenValue。若部署时修改了 tokenName，请以登录响应中的 tokenName 为准。",
+            required = true
+        )
+    )
     public Result<Void> logout() {
         authService.logout();
         return Result.success();

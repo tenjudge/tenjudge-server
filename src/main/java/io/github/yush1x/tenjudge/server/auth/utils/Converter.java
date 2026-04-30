@@ -15,6 +15,7 @@ public class Converter {
         userVO.setCreatedAt(user.getCreatedAt());
         userVO.setRating(user.getRating());
         userVO.setMaxRating(user.getMaxRating());
+        userVO.setSolvedCount(user.getSolvedCount());
         return userVO;
     }
 }
