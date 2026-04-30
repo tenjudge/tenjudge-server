@@ -54,5 +54,6 @@ app:
     problem-tags: 5h # 题目标签缓存 TTL
     contest-problem: 5h # 比赛题目编排缓存 TTL
     contest-detail: 60s # 比赛详情聚合缓存 TTL
+    contest-list: 60s # 比赛分页列表公共数据缓存 TTL
     null-value: 60s # 空值缓存 TTL，用于防止缓存穿透
     spring-cache-default: 1h # Spring Cache 默认 TTL

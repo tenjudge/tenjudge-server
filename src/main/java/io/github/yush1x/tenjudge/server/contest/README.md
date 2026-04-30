@@ -42,6 +42,13 @@
 - 比赛开始前仅管理员/超级管理员可以查看，普通用户和游客返回 `CONTEST_NOT_STARTED`。
 - 比赛开始后和结束后均允许查看。
 
+### 查询比赛列表规则
+- 接口为 `GET /contest`，不要求登录。
+- 查询参数为 `current`、`size`，默认分别为 `1`、`30`，`size` 最大为 `100`。
+- 返回对象为 `ContestPageVO`，其中 `records` 为 `ContestListItemVO` 列表。
+- 比赛列表按 `startTime` 倒序、`id` 倒序排列，保证相同开始时间下分页顺序稳定。
+- 当前只读取并缓存比赛公共元数据；`ended`、`registered` 由 `ContestService` 中的用户态拼接逻辑补充。
+
 ## 数据库
 `contest` 表：
 ```
@@ -75,6 +82,7 @@ problem_results 榜单题目结果快照，jsonb 类型，使用 problemId 作�
 ```
 contest_problem:contest:{contestId}  整场比赛的题目编排缓存，值为 ContestProblemDTO 列表
 contest_detail:contest:{contestId}   比赛详情聚合缓存，值为 ContestDetailVO
+contest_page:current:{current}:size:{size} 比赛分页列表公共数据缓存，值为 ContestPageVO
 ```
 
 ## 实现说明
@@ -83,6 +91,7 @@ contest_detail:contest:{contestId}   比赛详情聚合缓存，值为 ContestDe
 - `problem/queryInContest` 会先通过 `contest_problem` 将 `problemIndex` 映射为真实 `problemId`，再进入题目查询流程。
 - 该题目编排列表按比赛维度缓存到 Redis，降低比赛中按题号查题时的数据库压力。
 - `contest/{contestId}` 复用题目编排缓存，并批量查询题目标题，避免逐题查询。
+- `GET /contest` 使用比赛分页列表公共数据缓存；用户报名态和实时结束状态不进入该缓存，后续只应在 `ContestService` 中拼接。
 - 比赛相关缓存 key、缓存加载和失效统一维护在 `ContestCacheService`。
 - `contestProblems` 更新采用全量覆盖，因此写入链路必须在方法末尾通过 `ContestCacheService` 失效 `contest_problem:contest:{contestId}` 和 `contest_detail:contest:{contestId}`。
 - 题面更新可能改变比赛详情中的题目标题摘要，Problem 模块会通过 `ContestCacheService.evictContestDetailsByProblemId(problemId)` 删除引用该题目的 `contest_detail:contest:{contestId}` 缓存。

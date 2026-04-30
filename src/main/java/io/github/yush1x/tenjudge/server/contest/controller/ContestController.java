@@ -7,6 +7,7 @@ import io.github.yush1x.tenjudge.server.contest.dto.RegisterContestRequest;
 import io.github.yush1x.tenjudge.server.contest.dto.UpdateContestRequest;
 import io.github.yush1x.tenjudge.server.contest.service.ContestService;
 import io.github.yush1x.tenjudge.server.contest.vo.ContestDetailVO;
+import io.github.yush1x.tenjudge.server.contest.vo.ContestPageVO;
 import io.github.yush1x.tenjudge.server.contest.vo.CreateContestVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -31,6 +33,21 @@ import org.springframework.web.bind.annotation.RestController;
 public class ContestController {
 
     private final ContestService contestService;
+
+    @GetMapping
+    @Operation(
+        summary = "分页查询比赛列表",
+        description = "分页查询全部比赛，按比赛开始时间倒序排列。接口不要求登录；登录用户会额外返回当前页比赛的报名状态。",
+        operationId = "queryContestPage"
+    )
+    public Result<ContestPageVO> queryPage(
+        @Parameter(description = "当前页码，从 1 开始")
+        @RequestParam(defaultValue = "1") Long current,
+        @Parameter(description = "每页数量，最大 100")
+        @RequestParam(defaultValue = "30") Long size
+    ) {
+        return Result.success(contestService.queryContestPage(current, size));
+    }
 
     @GetMapping("/{contestId}")
     @Operation(

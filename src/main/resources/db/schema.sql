@@ -52,14 +52,9 @@ CREATE TABLE submission (
     info TEXT
 );
 
-CREATE INDEX idx_submission_contest_time
-ON submission (contest_id, submit_time DESC);
-
-CREATE INDEX idx_submission_submitter_time
-ON submission (submitter_id, submit_time DESC);
-
-CREATE INDEX idx_submission_contest_submitter_time
-ON submission (contest_id, submitter_id, submit_time DESC);
+CREATE INDEX idx_submission_contest_time ON submission (contest_id, submit_time DESC);
+CREATE INDEX idx_submission_submitter_time ON submission (submitter_id, submit_time DESC);
+CREATE INDEX idx_submission_contest_submitter_time ON submission (contest_id, submitter_id, submit_time DESC);
 
 
 CREATE TABLE submission_detail (
@@ -85,6 +80,8 @@ CREATE TABLE contest (
     penalty_per_wrong INTEGER NOT NULL DEFAULT 0
 );
 
+CREATE INDEX idx_contest_start_time_id ON contest (start_time DESC, id DESC);
+
 CREATE TABLE contest_problem (
     contest_id BIGINT NOT NULL,
     problem_id BIGINT NOT NULL,
@@ -104,4 +101,6 @@ CREATE TABLE contest_participant (
 
     PRIMARY KEY (contest_id, user_id)
 );
+
+CREATE UNIQUE INDEX uk_user_contest ON contest_participant (user_id, contest_id);
 

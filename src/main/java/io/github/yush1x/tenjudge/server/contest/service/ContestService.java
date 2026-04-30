@@ -18,6 +18,8 @@ import io.github.yush1x.tenjudge.server.contest.persistence.ContestProblemUpdate
 import io.github.yush1x.tenjudge.server.contest.persistence.ContestQueryService;
 import io.github.yush1x.tenjudge.server.contest.persistence.ContestUpdateService;
 import io.github.yush1x.tenjudge.server.contest.vo.ContestDetailVO;
+import io.github.yush1x.tenjudge.server.contest.vo.ContestListItemVO;
+import io.github.yush1x.tenjudge.server.contest.vo.ContestPageVO;
 import io.github.yush1x.tenjudge.server.contest.vo.CreateContestVO;
 import io.github.yush1x.tenjudge.server.exception.BizException;
 import io.github.yush1x.tenjudge.server.problem.entity.Problem;
@@ -204,5 +206,47 @@ public class ContestService {
         }
 
         return contestDetail;
+    }
+
+
+    // 分页查询比赛列表
+    public ContestPageVO queryContestPage(Long current, Long size) {
+        contestRequestChecker.checkContestPageRequest(current, size);
+
+        // 从缓存中读取所有用户共享的比赛元数据；用户报名态和实时结束状态每次请求单独拼接。
+        ContestPageVO cachedPage = contestCacheService.getContestPage(current, size);
+
+        // 拼接 registered、ended 等非公共缓存字段
+        LocalDateTime now = LocalDateTime.now();
+
+        List<ContestListItemVO> records = cachedPage.getRecords();
+        List<Long> contestIds = new ArrayList<>();
+        for (ContestListItemVO record : records) {
+            record.setEnded(record.getEndTime().isBefore(now)); // 比赛是否已经结束
+            contestIds.add(record.getId());
+        }
+
+        // 若没有登录，不用继续处理，直接返回结果
+        if (!authService.isLogin()) {
+            return cachedPage;
+        }
+
+        // 统计报名状态
+        List<ContestParticipant> participantList = contestParticipantQueryService.selectByContestIdAndUserId(authService.getLoginId(), contestIds);
+        Set<Long> registeredContestIds = new HashSet<>();
+        for (ContestParticipant participant : participantList) {
+            registeredContestIds.add(participant.getContestId());
+        }
+        for (ContestListItemVO record : records) {
+            record.setRegistered(registeredContestIds.contains(record.getId()));
+        }
+
+        return ContestPageVO.builder()
+                .current(cachedPage.getCurrent())
+                .size(cachedPage.getSize())
+                .total(cachedPage.getTotal())
+                .pages(cachedPage.getPages())
+                .records(records)
+                .build();
     }
 }

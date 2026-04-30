@@ -1,11 +1,13 @@
 package io.github.yush1x.tenjudge.server.contest.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.github.yush1x.tenjudge.server.contest.dto.ContestProblemDTO;
 import io.github.yush1x.tenjudge.server.contest.entity.Contest;
 import io.github.yush1x.tenjudge.server.contest.entity.ContestProblem;
 import io.github.yush1x.tenjudge.server.contest.persistence.ContestProblemQueryService;
 import io.github.yush1x.tenjudge.server.contest.persistence.ContestQueryService;
 import io.github.yush1x.tenjudge.server.contest.vo.ContestDetailVO;
+import io.github.yush1x.tenjudge.server.contest.vo.ContestPageVO;
 import io.github.yush1x.tenjudge.server.infra.RedisService;
 import io.github.yush1x.tenjudge.server.problem.entity.Problem;
 import io.github.yush1x.tenjudge.server.problem.persistence.ProblemQueryService;
@@ -128,6 +130,33 @@ class ContestCacheServiceTest {
         assertEquals(1002L, result.getProblems().get(1).getId());
         assertEquals("B", result.getProblems().get(1).getIndex());
         assertEquals("Binary Search", result.getProblems().get(1).getTitle());
+    }
+
+    @Test
+    void getContestPage_loaderBuildsPublicContestPage() {
+        Page<Contest> page = new Page<>(1, 10);
+        page.setRecords(List.of(contest(10L)));
+        page.setTotal(1);
+        page.setCurrent(1);
+        page.setSize(10);
+        page.setPages(1);
+
+        when(redisService.get(eq("contest_page:current:1:size:10"), eq(ContestPageVO.class), eq("contest-list"), any()))
+                .thenAnswer(invocation -> {
+                    Supplier<?> loader = invocation.getArgument(3);
+                    return loader.get();
+                });
+        when(contestQueryService.selectPage(1, 10)).thenReturn(page);
+
+        ContestPageVO result = contestCacheService.getContestPage(1, 10);
+
+        assertEquals(1, result.getRecords().size());
+        assertEquals(10L, result.getRecords().get(0).getId());
+        assertEquals("Weekly Round 1", result.getRecords().get(0).getName());
+        assertEquals(1L, result.getTotal());
+        assertEquals(1L, result.getCurrent());
+        assertEquals(10L, result.getSize());
+        assertEquals(1L, result.getPages());
     }
 
     @Test

@@ -18,6 +18,8 @@ import io.github.yush1x.tenjudge.server.contest.persistence.ContestProblemUpdate
 import io.github.yush1x.tenjudge.server.contest.persistence.ContestQueryService;
 import io.github.yush1x.tenjudge.server.contest.persistence.ContestUpdateService;
 import io.github.yush1x.tenjudge.server.contest.vo.ContestDetailVO;
+import io.github.yush1x.tenjudge.server.contest.vo.ContestListItemVO;
+import io.github.yush1x.tenjudge.server.contest.vo.ContestPageVO;
 import io.github.yush1x.tenjudge.server.contest.vo.CreateContestVO;
 import io.github.yush1x.tenjudge.server.exception.BizException;
 import io.github.yush1x.tenjudge.server.problem.entity.Problem;
@@ -357,6 +359,77 @@ class ContestServiceTest {
         assertEquals(1002L, result.getProblems().get(1).getId());
         assertEquals("B", result.getProblems().get(1).getIndex());
         assertEquals("Binary Search", result.getProblems().get(1).getTitle());
+    }
+
+    @Test
+    void queryContestPage_returnsCachedPublicPage() {
+        ContestPageVO cachedPage = ContestPageVO.builder()
+                .records(List.of(
+                        ContestListItemVO.builder()
+                                .id(1L)
+                                .name("Ended Contest")
+                                .startTime(LocalDateTime.now().minusDays(2))
+                                .endTime(LocalDateTime.now().minusDays(1))
+                                .build(),
+                        ContestListItemVO.builder()
+                                .id(2L)
+                                .name("Running Contest")
+                                .startTime(LocalDateTime.now().minusHours(1))
+                                .endTime(LocalDateTime.now().plusHours(1))
+                                .build()
+                ))
+                .total(2L)
+                .current(1L)
+                .size(10L)
+                .pages(1L)
+                .build();
+
+        when(contestCacheService.getContestPage(1, 10)).thenReturn(cachedPage);
+
+        ContestPageVO result = contestService.queryContestPage(1L, 10L);
+
+        assertEquals(cachedPage, result);
+        verify(contestCacheService).getContestPage(1, 10);
+        verifyNoInteractions(contestParticipantQueryService);
+    }
+
+    @Test
+    void queryContestPage_loggedInUser_setsRegisteredStatus() {
+        ContestPageVO cachedPage = ContestPageVO.builder()
+                .records(List.of(
+                        ContestListItemVO.builder()
+                                .id(1L)
+                                .name("Registered Contest")
+                                .startTime(LocalDateTime.now().minusDays(2))
+                                .endTime(LocalDateTime.now().minusDays(1))
+                                .build(),
+                        ContestListItemVO.builder()
+                                .id(2L)
+                                .name("Unregistered Contest")
+                                .startTime(LocalDateTime.now().plusHours(1))
+                                .endTime(LocalDateTime.now().plusHours(2))
+                                .build()
+                ))
+                .total(2L)
+                .current(1L)
+                .size(10L)
+                .pages(1L)
+                .build();
+        ContestParticipant participant = new ContestParticipant();
+        participant.setContestId(1L);
+
+        when(contestCacheService.getContestPage(1, 10)).thenReturn(cachedPage);
+        when(authService.isLogin()).thenReturn(true);
+        when(authService.getLoginId()).thenReturn(1L);
+        when(contestParticipantQueryService.selectByContestIdAndUserId(1L, List.of(1L, 2L)))
+                .thenReturn(List.of(participant));
+
+        ContestPageVO result = contestService.queryContestPage(1L, 10L);
+
+        assertEquals(Boolean.TRUE, result.getRecords().get(0).getRegistered());
+        assertEquals(Boolean.FALSE, result.getRecords().get(1).getRegistered());
+        assertEquals(1L, result.getPages());
+        verify(contestParticipantQueryService).selectByContestIdAndUserId(1L, List.of(1L, 2L));
     }
 
     private CreateContestRequest validCreateRequest() {

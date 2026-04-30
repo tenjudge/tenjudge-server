@@ -7,12 +7,14 @@ import io.github.yush1x.tenjudge.server.problem.service.ProblemService;
 import io.github.yush1x.tenjudge.server.problem.vo.CreateProblemVO;
 import io.github.yush1x.tenjudge.server.problem.vo.ProblemVO;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequiredArgsConstructor
+@Tag(name = "Problem", description = "题目管理与查询接口")
 public class ProblemController {
 
     private final ProblemService problemService;

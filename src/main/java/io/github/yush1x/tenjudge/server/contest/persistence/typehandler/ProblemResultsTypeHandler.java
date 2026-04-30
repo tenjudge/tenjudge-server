@@ -16,6 +16,10 @@ import java.sql.Types;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * 将ContestParticipant.problemResults字段（Map<Long, ProblemResult>）序列化为 JSON 存储到数据库中，并在读取时反序列化回 Map。
+ */
+
 @MappedTypes(Map.class)
 @MappedJdbcTypes(JdbcType.OTHER)
 public class ProblemResultsTypeHandler extends BaseTypeHandler<Map<Long, ProblemResult>> {

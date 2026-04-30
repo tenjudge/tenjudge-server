@@ -1,11 +1,14 @@
 package io.github.yush1x.tenjudge.server.contest.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.github.yush1x.tenjudge.server.contest.dto.ContestProblemDTO;
 import io.github.yush1x.tenjudge.server.contest.entity.Contest;
 import io.github.yush1x.tenjudge.server.contest.entity.ContestProblem;
 import io.github.yush1x.tenjudge.server.contest.persistence.ContestProblemQueryService;
 import io.github.yush1x.tenjudge.server.contest.persistence.ContestQueryService;
 import io.github.yush1x.tenjudge.server.contest.vo.ContestDetailVO;
+import io.github.yush1x.tenjudge.server.contest.vo.ContestListItemVO;
+import io.github.yush1x.tenjudge.server.contest.vo.ContestPageVO;
 import io.github.yush1x.tenjudge.server.contest.vo.ContestProblemBriefVO;
 import io.github.yush1x.tenjudge.server.infra.RedisService;
 import io.github.yush1x.tenjudge.server.problem.entity.Problem;
@@ -90,6 +93,33 @@ public class ContestCacheService {
                     .freezeTime(contest.getFreezeTime())
                     .penaltyPerWrong(contest.getPenaltyPerWrong())
                     .problems(problems)
+                    .build();
+        });
+    }
+
+    // 获取比赛列表（分页查询）
+    public ContestPageVO getContestPage(long current, long size) {
+        return redisService.get("contest_page:current:" + current + ":size:" + size, ContestPageVO.class, "contest-list", () -> {
+            Page<Contest> page = contestQueryService.selectPage(current, size);
+
+            List<ContestListItemVO> records = new ArrayList<>();
+            for (Contest contest : page.getRecords()) {
+                // 分页缓存只保存公共比赛元数据；用户报名态和实时结束状态由 ContestService 每次请求补齐。
+                records.add(ContestListItemVO.builder()
+                        .id(contest.getId())
+                        .name(contest.getName())
+                        .startTime(contest.getStartTime())
+                        .endTime(contest.getEndTime())
+                        .freezeTime(contest.getFreezeTime())
+                        .build());
+            }
+
+            return ContestPageVO.builder()
+                    .records(records)
+                    .total(page.getTotal())
+                    .current(page.getCurrent())
+                    .size(page.getSize())
+                    .pages(page.getPages())
                     .build();
         });
     }

@@ -26,7 +26,7 @@ public class ContestProblemUpdateService {
             return;
         }
 
-        // 当前题目编排数据量通常较小，逐条插入更符合现有 mapper 使用方式
+        // 当前题目编排数据量通常较小，逐条插入
         for (ContestProblem contestProblem : contestProblems) {
             contestProblemMapper.insert(contestProblem);
         }

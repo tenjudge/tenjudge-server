@@ -7,6 +7,7 @@ import io.github.yush1x.tenjudge.server.contest.dto.CreateContestRequest;
 import io.github.yush1x.tenjudge.server.contest.dto.RegisterContestRequest;
 import io.github.yush1x.tenjudge.server.contest.dto.UpdateContestRequest;
 import io.github.yush1x.tenjudge.server.exception.BizException;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -187,5 +188,19 @@ class ContestRequestCheckerTest {
         CancelRegisterContestRequest finalRequest = request;
         BizException ex = assertThrows(BizException.class, () -> contestRequestChecker.checkCancelRegisterContestRequest(finalRequest));
         assertEquals(expectedCode, ex.getCode());
+    }
+
+    @Test
+    void checkContestPageRequest_validPage_doesNotThrow() {
+        assertDoesNotThrow(() -> contestRequestChecker.checkContestPageRequest(1L, 10L));
+    }
+
+    @Test
+    void checkContestPageRequest_invalidPage_throwsBizException() {
+        BizException currentEx = assertThrows(BizException.class, () -> contestRequestChecker.checkContestPageRequest(0L, 10L));
+        BizException sizeEx = assertThrows(BizException.class, () -> contestRequestChecker.checkContestPageRequest(1L, 101L));
+
+        assertEquals(Code.CONTEST_REQUEST_INVALID, currentEx.getCode());
+        assertEquals(Code.CONTEST_REQUEST_INVALID, sizeEx.getCode());
     }
 }

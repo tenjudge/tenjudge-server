@@ -18,7 +18,7 @@ public class ContestParticipant {
     private Integer solvedCount;
     private Integer penalty;
 
-    // 榜单题目明细使用 problemId 作为 key，避免题号调整后旧数据失去稳定索引。
+    // 榜单题目明细（使用 problemId 而不是 Index 作为 key）
     @TableField(value = "problem_results", typeHandler = ProblemResultsTypeHandler.class)
     private Map<Long, ProblemResult> problemResults = new HashMap<>();
 
@@ -29,7 +29,6 @@ public class ContestParticipant {
         }
         return problemResults.computeIfAbsent(problemId, ignored -> new ProblemResult());
     }
-
 
     // 记录一道题在通过前的错误提交次数。
     public void recordWrongAttempt(Long problemId) {

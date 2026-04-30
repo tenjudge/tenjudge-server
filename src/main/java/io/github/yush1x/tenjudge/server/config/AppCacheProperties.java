@@ -17,6 +17,7 @@ public class AppCacheProperties {
             "problem-tags", Duration.ofHours(5),
             "contest-problem", Duration.ofHours(5),
             "contest-detail", Duration.ofSeconds(60),
+            "contest-list", Duration.ofSeconds(60),
             "null-value", Duration.ofSeconds(60),
             "spring-cache-default", Duration.ofHours(1)
     );

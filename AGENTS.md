@@ -71,7 +71,7 @@
 
 - `RedisService` 是业务代码访问 Redis 缓存的统一入口，位于 `infra` 包。业务模块不要直接注入 `RedisTemplate` 读写业务缓存；确需新增 Redis 能力时，优先扩展 `RedisService` 的通用方法。
 - `RedisConfig` 只负责 `RedisTemplate` 序列化和 Spring CacheManager 配置；Spring Cache 默认 TTL 通过 `AppCacheProperties.getCacheTtl("spring-cache-default")` 获取。
-- `AppCacheProperties` 负责集中管理缓存 TTL。配置绑定前缀为 `app`，`cacheTtl` 可从 `app.cache-ttl` 读取；若 yml 未配置，则使用类内 `DEFAULT_CACHE_TTLS` 兜底。当前 TTL 名称包括 `user-role`、`problem`、`problem-tags`、`contest-problem`、`contest-detail`、`null-value`、`spring-cache-default`。
+- `AppCacheProperties` 负责集中管理缓存 TTL。配置绑定前缀为 `app`，`cacheTtl` 可从 `app.cache-ttl` 读取；若 yml 未配置，则使用类内 `DEFAULT_CACHE_TTLS` 兜底。当前 TTL 名称包括 `user-role`、`problem`、`problem-tags`、`contest-problem`、`contest-detail`、`contest-list`、`null-value`、`spring-cache-default`。
 - 新增业务缓存时，调用方应传入稳定的 TTL 名称，例如 `redisService.get(key, clazz, "problem", loader)`；不要在业务代码中硬编码 `Duration`，也不要在各模块里散落 `@Value("${app.cache-ttl...}")`。
 - `RedisService.get(key, clazz, ttlName, loader)` 是带回源逻辑的缓存读取入口：先查 Redis，未命中时用 `lock:cache:{cacheKey}` 加 Redisson 锁防止缓存击穿，二次检查缓存后执行 `loader` 回源，回源为空时写入 `NULL_VALUE`，空值 TTL 使用 `null-value`。
 - `RedisService.getValue(key, clazz)` / `set(key, value, ttlName)` 用于简单值缓存，例如 `user:role:{userId}`。这类方法不负责回源，调用方自己决定未命中后如何查询数据库并写回。
@@ -161,6 +161,7 @@
 - `contest` 模块内所有 Redis 缓存 key、TTL 读取、缓存加载与失效逻辑统一收敛到 `ContestCacheService`；`persistence` 层不要直接依赖 `RedisService`。
 - `problem/queryInContest` 会通过 Redis 缓存整场比赛的题目编排列表（包含 `problemId` 与 `problemIndex`）；修改 `contest_problem` 写入链路时，必须通过 `ContestCacheService` 统一删除相关缓存。
 - `contest/{contestId}` 会缓存比赛详情聚合结果（比赛元数据与题目标题摘要），TTL 名称使用 `contest-detail`，新增缓存 key 或 TTL 名称时必须同步更新根 `README.md` 的 Redis 小节。
+- `GET /contest` 会缓存比赛分页列表公共数据，TTL 名称使用 `contest-list`；登录用户报名态和实时结束状态不要写入分页公共缓存，后续应只在 `ContestService` 中按请求拼接。
 - 修改比赛元数据或题目编排写入链路时，必须在方法末尾同步失效 `contest_problem:contest:{contestId}` 与 `contest_detail:contest:{contestId}`。
 - 不要为了极短的字符串拼接、单行转发或没有复用价值的逻辑新开 private 方法；这类代码优先保持内联，除非能明显降低复杂度或表达业务约束。
 - 比赛题目编排依赖题目真实存在性校验，不能只依赖数据库约束兜底；同一场比赛内 `problemId` 和 `problemIndex` 都必须唯一。
