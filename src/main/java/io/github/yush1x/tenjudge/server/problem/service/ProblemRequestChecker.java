@@ -100,4 +100,13 @@ public class ProblemRequestChecker {
         return problemConfig;
     }
 
+    public void checkProblemPageRequest(Long current, Long size) {
+        if (current == null || current < 1) {
+            throw new BizException(Code.PROBLEM_REQUEST_INVALID, "current is invalid");
+        }
+        if (size == null || size < 1 || size > 100) {
+            throw new BizException(Code.PROBLEM_REQUEST_INVALID, "size is invalid");
+        }
+    }
+
 }

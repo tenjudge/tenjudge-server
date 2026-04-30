@@ -16,6 +16,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
@@ -144,6 +145,20 @@ class ProblemRequestCheckerTest {
         BizException ex = assertThrows(BizException.class, () -> problemRequestChecker.checkProblemFiles(DIR));
 
         assertEquals(Code.FILE_MISSING, ex.getCode());
+    }
+
+    @Test
+    void checkProblemPageRequest_validPage_doesNotThrow() {
+        assertDoesNotThrow(() -> problemRequestChecker.checkProblemPageRequest(1L, 10L));
+    }
+
+    @Test
+    void checkProblemPageRequest_invalidPage_throwsBizException() {
+        BizException currentEx = assertThrows(BizException.class, () -> problemRequestChecker.checkProblemPageRequest(0L, 10L));
+        BizException sizeEx = assertThrows(BizException.class, () -> problemRequestChecker.checkProblemPageRequest(1L, 101L));
+
+        assertEquals(Code.PROBLEM_REQUEST_INVALID, currentEx.getCode());
+        assertEquals(Code.PROBLEM_REQUEST_INVALID, sizeEx.getCode());
     }
 
     private ProblemConfig validConfig() {

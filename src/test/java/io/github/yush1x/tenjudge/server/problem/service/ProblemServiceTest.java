@@ -13,6 +13,7 @@ import io.github.yush1x.tenjudge.server.problem.persistence.ProblemQueryService;
 import io.github.yush1x.tenjudge.server.problem.persistence.ProblemTagUpdateService;
 import io.github.yush1x.tenjudge.server.problem.persistence.ProblemUpdateService;
 import io.github.yush1x.tenjudge.server.problem.storage.FileService;
+import io.github.yush1x.tenjudge.server.problem.vo.ProblemPageVO;
 import io.github.yush1x.tenjudge.server.problem.vo.ProblemVO;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -73,6 +74,24 @@ class ProblemServiceTest {
 
     @InjectMocks
     private ProblemService problemService;
+
+    @Test
+    void queryProblemPage_checksRequestAndReturnsCachedPublicPage() {
+        ProblemPageVO expected = ProblemPageVO.builder()
+                .current(1L)
+                .size(10L)
+                .total(0L)
+                .pages(0L)
+                .records(List.of())
+                .build();
+        when(problemCacheService.getProblemPage(1L, 10L)).thenReturn(expected);
+
+        ProblemPageVO result = problemService.queryProblemPage(1L, 10L);
+
+        assertEquals(expected, result);
+        verify(problemRequestChecker).checkProblemPageRequest(1L, 10L);
+        verify(problemCacheService).getProblemPage(1L, 10L);
+    }
 
     @Test
     void query_fullAccessReturnsAllFields() {

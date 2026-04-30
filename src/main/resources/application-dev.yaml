@@ -52,6 +52,7 @@ app:
     user-role: 3600s # 角色权限缓存 TTL
     problem: 5h # 题目元数据缓存 TTL
     problem-tags: 5h # 题目标签缓存 TTL
+    problem-list: 60s # 公开题目分页列表缓存 TTL
     contest-problem: 5h # 比赛题目编排缓存 TTL
     contest-detail: 60s # 比赛详情聚合缓存 TTL
     contest-list: 60s # 比赛分页列表公共数据缓存 TTL

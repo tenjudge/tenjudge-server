@@ -1,9 +1,11 @@
 package io.github.yush1x.tenjudge.server.problem.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.github.yush1x.tenjudge.server.infra.RedisService;
 import io.github.yush1x.tenjudge.server.problem.entity.Problem;
 import io.github.yush1x.tenjudge.server.problem.persistence.ProblemQueryService;
 import io.github.yush1x.tenjudge.server.problem.persistence.ProblemTagQueryService;
+import io.github.yush1x.tenjudge.server.problem.vo.ProblemPageVO;
 import io.github.yush1x.tenjudge.server.problem.vo.ProblemVO;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -13,6 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.redisson.api.RedissonClient;
 
 import java.util.List;
+import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -61,6 +64,34 @@ class ProblemCacheServiceTest {
 
         verify(redisService).delete("problem:1");
         verify(redisService).delete("problem_tags:1");
+    }
+
+    @Test
+    void getProblemPage_loaderBuildsPublicProblemPage() {
+        Page<Problem> page = new Page<>(1, 10);
+        page.setRecords(List.of(buildProblem()));
+        page.setTotal(1);
+        page.setCurrent(1);
+        page.setSize(10);
+        page.setPages(1);
+
+        when(redisService.get(eq("problem_page:current:1:size:10"), eq(ProblemPageVO.class), eq("problem-list"), any()))
+                .thenAnswer(invocation -> {
+                    Supplier<?> loader = invocation.getArgument(3);
+                    return loader.get();
+                });
+        when(problemQueryService.selectPublicPage(1, 10)).thenReturn(page);
+
+        ProblemPageVO result = problemCacheService.getProblemPage(1, 10);
+
+        assertEquals(1, result.getRecords().size());
+        assertEquals(1L, result.getRecords().get(0).getId());
+        assertEquals("A + B", result.getRecords().get(0).getName());
+        assertEquals(1200, result.getRecords().get(0).getDifficulty());
+        assertEquals(1L, result.getTotal());
+        assertEquals(1L, result.getCurrent());
+        assertEquals(10L, result.getSize());
+        assertEquals(1L, result.getPages());
     }
 
     @Test

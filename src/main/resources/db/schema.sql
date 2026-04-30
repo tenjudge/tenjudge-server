@@ -28,6 +28,8 @@ CREATE TABLE problem (
     test_case_num INTEGER NOT NULL
 );
 
+CREATE INDEX idx_problem_visibility_id ON problem (visibility, id ASC);
+
 
 CREATE TABLE problem_tag (
     problem_id BIGINT NOT NULL,
@@ -103,4 +105,3 @@ CREATE TABLE contest_participant (
 );
 
 CREATE UNIQUE INDEX uk_user_contest ON contest_participant (user_id, contest_id);
-

@@ -75,6 +75,9 @@ version 版本号，每次更新题面时递增
 test_case_num 测试点数量（按 input/i.in 与 answer/i.ans 同时连续存在统计）
 ```
 
+索引：
+- `idx_problem_visibility_id`：按 `visibility` 过滤并按 `id ASC` 分页查询公开题目列表
+
 `problem_tag` 表：
 ```
 problem_id 题目ID
@@ -104,6 +107,7 @@ problem/<problem_key>/
 lock:problem:{problemId}  题目的读写锁
 problem:{problemId}  题目元数据缓存，值为 Problem
 problem_tags:{problemId}  题目标签缓存，值为标签列表
+problem_page:current:{current}:size:{size}  公开题目分页列表缓存，值为 ProblemPageVO
 contest_problem:contest:{contestId}  比赛题目编排缓存，值为整场比赛的 ContestProblemDTO 列表
 ```
 
@@ -138,7 +142,13 @@ contest_problem:contest:{contestId}  比赛题目编排缓存，值为整场比�
 
 ### 3. 查询题目
 
-查询题目由 `ProblemService` 提供三个入口，并统一收敛到 `query(ProblemQueryRequest)`：
+题目列表查询：
+
+- `/problem?current=1&size=30`：分页查询 public 题目，按 `problemId` 升序排列；返回 `ProblemPageVO`，其中 `records` 只包含 `id`、`name`、`difficulty`。
+- 当前页数据通过 `ProblemCacheService.getProblemPage(...)` 缓存到 `problem_page:current:{current}:size:{size}`，TTL 名称为 `problem-list`。
+- 公开题目分页列表依赖短 TTL 自动更新；题面更新或可见性变更后，列表缓存允许在 `problem-list` TTL 内短暂陈旧，不在写入链路批量删除分页缓存。
+
+题目详情查询由 `ProblemService` 提供三个入口，并统一收敛到 `query(ProblemQueryRequest)`：
 
 - `/problem/{id}`：按题目 id 查询，不携带比赛上下文；public 题可匿名查看，private 题仅管理员可查看。
 - `/contest/{contestId}/problem/{index}`：按比赛内题号查询。先从 `ContestCacheService` 获取比赛题目编排，用 `index` 找到真实 `problemId`，再携带 `contestId` 进入统一查询。

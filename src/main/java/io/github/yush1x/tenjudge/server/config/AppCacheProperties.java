@@ -15,6 +15,7 @@ public class AppCacheProperties {
             "user-role", Duration.ofHours(1),
             "problem", Duration.ofHours(5),
             "problem-tags", Duration.ofHours(5),
+            "problem-list", Duration.ofSeconds(60),
             "contest-problem", Duration.ofHours(5),
             "contest-detail", Duration.ofSeconds(60),
             "contest-list", Duration.ofSeconds(60),

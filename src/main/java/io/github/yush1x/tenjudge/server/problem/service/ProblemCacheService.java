@@ -1,11 +1,14 @@
 package io.github.yush1x.tenjudge.server.problem.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.github.yush1x.tenjudge.server.common.Code;
 import io.github.yush1x.tenjudge.server.exception.BizException;
 import io.github.yush1x.tenjudge.server.infra.RedisService;
 import io.github.yush1x.tenjudge.server.problem.entity.Problem;
 import io.github.yush1x.tenjudge.server.problem.persistence.ProblemQueryService;
 import io.github.yush1x.tenjudge.server.problem.persistence.ProblemTagQueryService;
+import io.github.yush1x.tenjudge.server.problem.vo.ProblemListItemVO;
+import io.github.yush1x.tenjudge.server.problem.vo.ProblemPageVO;
 import io.github.yush1x.tenjudge.server.problem.vo.ProblemVO;
 import lombok.RequiredArgsConstructor;
 import org.redisson.api.RLock;
@@ -13,6 +16,7 @@ import org.redisson.api.RReadWriteLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -34,6 +38,30 @@ public class ProblemCacheService {
     public List<String> getProblemTags(Long problemId) {
         return redisService.get("problem_tags:" + problemId, List.class,
                 "problem-tags", () -> getProblemTagsWithReadLock(problemId));
+    }
+
+    public ProblemPageVO getProblemPage(long current, long size) {
+        return redisService.get("problem_page:current:" + current + ":size:" + size, ProblemPageVO.class, "problem-list", () -> {
+            Page<Problem> page = problemQueryService.selectPublicPage(current, size);
+
+            List<ProblemListItemVO> records = new ArrayList<>();
+            for (Problem problem : page.getRecords()) {
+                // 题目分页是公开入口，只缓存列表摘要字段，避免把题面或题解放入列表缓存。
+                records.add(ProblemListItemVO.builder()
+                        .id(problem.getId())
+                        .name(problem.getName())
+                        .difficulty(problem.getDifficulty())
+                        .build());
+            }
+
+            return ProblemPageVO.builder()
+                    .records(records)
+                    .total(page.getTotal())
+                    .current(page.getCurrent())
+                    .size(page.getSize())
+                    .pages(page.getPages())
+                    .build();
+        });
     }
 
     public void evictProblemCaches(Long problemId) {

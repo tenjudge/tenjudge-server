@@ -16,6 +16,7 @@ import io.github.yush1x.tenjudge.server.problem.persistence.ProblemUpdateService
 import io.github.yush1x.tenjudge.server.problem.storage.FileService;
 import io.github.yush1x.tenjudge.server.infra.MinioService;
 import io.github.yush1x.tenjudge.server.problem.vo.CreateProblemVO;
+import io.github.yush1x.tenjudge.server.problem.vo.ProblemPageVO;
 import io.github.yush1x.tenjudge.server.problem.vo.ProblemVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -51,6 +52,17 @@ public class ProblemService {
 
     @Value("${app.file-storage.temp}")
     private String tempDir;
+
+    /**
+     * 分页查询公开题目列表
+     * @param current 当前页码，从 1 开始
+     * @param size 每页数量，最大 100
+     * @return 公开题目分页摘要
+     */
+    public ProblemPageVO queryProblemPage(Long current, Long size) {
+        problemRequestChecker.checkProblemPageRequest(current, size);
+        return problemCacheService.getProblemPage(current, size);
+    }
 
     /**
      * 通过id直接查找题目

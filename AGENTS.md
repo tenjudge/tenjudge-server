@@ -71,7 +71,7 @@
 
 - `RedisService` 是业务代码访问 Redis 缓存的统一入口，位于 `infra` 包。业务模块不要直接注入 `RedisTemplate` 读写业务缓存；确需新增 Redis 能力时，优先扩展 `RedisService` 的通用方法。
 - `RedisConfig` 只负责 `RedisTemplate` 序列化和 Spring CacheManager 配置；Spring Cache 默认 TTL 通过 `AppCacheProperties.getCacheTtl("spring-cache-default")` 获取。
-- `AppCacheProperties` 负责集中管理缓存 TTL。配置绑定前缀为 `app`，`cacheTtl` 可从 `app.cache-ttl` 读取；若 yml 未配置，则使用类内 `DEFAULT_CACHE_TTLS` 兜底。当前 TTL 名称包括 `user-role`、`problem`、`problem-tags`、`contest-problem`、`contest-detail`、`contest-list`、`null-value`、`spring-cache-default`。
+- `AppCacheProperties` 负责集中管理缓存 TTL。配置绑定前缀为 `app`，`cacheTtl` 可从 `app.cache-ttl` 读取；若 yml 未配置，则使用类内 `DEFAULT_CACHE_TTLS` 兜底。当前 TTL 名称包括 `user-role`、`problem`、`problem-tags`、`problem-list`、`contest-problem`、`contest-detail`、`contest-list`、`null-value`、`spring-cache-default`。
 - 新增业务缓存时，调用方应传入稳定的 TTL 名称，例如 `redisService.get(key, clazz, "problem", loader)`；不要在业务代码中硬编码 `Duration`，也不要在各模块里散落 `@Value("${app.cache-ttl...}")`。
 - `RedisService.get(key, clazz, ttlName, loader)` 是带回源逻辑的缓存读取入口：先查 Redis，未命中时用 `lock:cache:{cacheKey}` 加 Redisson 锁防止缓存击穿，二次检查缓存后执行 `loader` 回源，回源为空时写入 `NULL_VALUE`，空值 TTL 使用 `null-value`。
 - `RedisService.getValue(key, clazz)` / `set(key, value, ttlName)` 用于简单值缓存，例如 `user:role:{userId}`。这类方法不负责回源，调用方自己决定未命中后如何查询数据库并写回。
@@ -144,10 +144,11 @@
 - 题目导入与更新都依赖 zip 文件结构校验，相关规则统一维护在 `ProblemRequestChecker`。
 - 题目更新不是单纯数据库更新，还涉及临时目录、MinIO 新旧对象切换、版本号递增和 Redisson 锁。
 - 修改 `ProblemService.update()` 时，必须优先保证数据库与对象存储的一致性，不要破坏“新对象上传成功后再切换指针”的思路。
-- 题目缓存读取、题目标签缓存读取、题目缓存失效和题面 VO 构建统一维护在 `ProblemCacheService`；`ProblemService` 只负责权限、事务和写入编排。
-- 题目缓存 TTL 名称统一使用 `problem` 与 `problem-tags`，由 `RedisService` 按 TTL 名称读取配置，不要在业务代码中硬编码 `Duration`。
-- 题面更新后必须通过 `ProblemCacheService` 失效 `problem:{problemId}` 与 `problem_tags:{problemId}`，并通过 `ContestCacheService` 失效引用该题目的比赛详情缓存。
-- 修改题目可见性只能由超级管理员执行，数据库写入放在 `ProblemUpdateService.updateVisibility()`，写入成功后必须失效题目缓存。
+- 题目缓存读取、题目标签缓存读取、公开题目分页缓存读取、题目缓存失效和题面 VO 构建统一维护在 `ProblemCacheService`；`ProblemService` 只负责权限、事务和写入编排。
+- 题目缓存 TTL 名称统一使用 `problem`、`problem-tags` 与 `problem-list`，由 `RedisService` 按 TTL 名称读取配置，不要在业务代码中硬编码 `Duration`。
+- 公开题目分页接口 `GET /problem` 只返回 public 题目，按 `problemId` 升序排列，列表项只包含 `id`、`name`、`difficulty`。
+- 题面更新后必须通过 `ProblemCacheService` 失效 `problem:{problemId}` 与 `problem_tags:{problemId}`，并通过 `ContestCacheService` 失效引用该题目的比赛详情缓存；公开题目分页缓存 `problem_page:current:{current}:size:{size}` 依赖短 TTL 自动更新，不在写入链路批量删除。
+- 修改题目可见性只能由超级管理员执行，数据库写入放在 `ProblemUpdateService.updateVisibility()`，写入成功后必须失效题目详情缓存；公开题目分页缓存允许在短 TTL 内短暂陈旧。
 - 题目权限判断优先查看 `ProblemPermissionChecker`，不要在多个接口里复制粘贴可见性规则。
 - 修改题目查看权限时，必须保持 public 题和正在进行比赛上下文中的 private 题可匿名查看；非管理员查看比赛 private 题时只能返回受限题面字段。
 - `ProblemPermissionChecker` 内简单的登录态、角色、可见性布尔组合应保持内联；不要为 `authService.isLogin() && isAdmin(authService.getLoginId())` 这类短判断单独抽 private 方法。

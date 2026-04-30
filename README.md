@@ -26,6 +26,7 @@ Java 21、Spring Boot 4、Maven、MyBatis-Plus、PostgreSQL、Redis、Redisson�
 - `user:role:{userId}` 用于用户角色缓存
 - `problem:{problemId}` 用于 `problem` 表缓存
 - `problem_tags:{problemId}` 用于查询一个题目所有 tag 的缓存
+- `problem_page:current:{current}:size:{size}` 用于公开题目分页列表缓存，只包含 `id`、`name`、`difficulty` 摘要字段
 - `contest_problem:contest:{contestId}` 用于比赛题目编排缓存
 - `contest_detail:contest:{contestId}` 用于比赛详情聚合缓存，包含比赛元数据与题目标题摘要
 - `contest_page:current:{current}:size:{size}` 用于比赛分页列表公共数据缓存，不包含登录用户报名状态和实时结束状态

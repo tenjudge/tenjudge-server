@@ -5,8 +5,10 @@ import io.github.yush1x.tenjudge.server.problem.dto.ProblemUpdateRequest;
 import io.github.yush1x.tenjudge.server.problem.dto.ProblemVisibilityUpdateRequest;
 import io.github.yush1x.tenjudge.server.problem.service.ProblemService;
 import io.github.yush1x.tenjudge.server.problem.vo.CreateProblemVO;
+import io.github.yush1x.tenjudge.server.problem.vo.ProblemPageVO;
 import io.github.yush1x.tenjudge.server.problem.vo.ProblemVO;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -18,6 +20,20 @@ import org.springframework.web.multipart.MultipartFile;
 public class ProblemController {
 
     private final ProblemService problemService;
+
+    @GetMapping("/problem")
+    @Operation(
+        summary = "分页查询公开题目列表",
+        description = "分页查询 public 题目，按 problemId 升序排列。接口不要求登录，只返回 id、name、difficulty 摘要字段。"
+    )
+    public Result<ProblemPageVO> queryPage(
+        @Parameter(description = "当前页码，从 1 开始")
+        @RequestParam(defaultValue = "1") Long current,
+        @Parameter(description = "每页数量，最大 100")
+        @RequestParam(defaultValue = "30") Long size
+    ) {
+        return Result.success(problemService.queryProblemPage(current, size));
+    }
 
     @PostMapping("/problem")
     @Operation(
