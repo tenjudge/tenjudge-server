@@ -3,7 +3,10 @@ package io.github.yush1x.tenjudge.server.submit.controller;
 import io.github.yush1x.tenjudge.server.common.Result;
 import io.github.yush1x.tenjudge.server.submit.dto.JudgeRequest;
 import io.github.yush1x.tenjudge.server.submit.service.SubmitService;
+import io.github.yush1x.tenjudge.server.submit.vo.SubmissionListItemVO;
+import io.github.yush1x.tenjudge.server.submit.vo.SubmissionPageVO;
 import io.github.yush1x.tenjudge.server.submit.vo.SubmitJudgeVO;
+import io.github.yush1x.tenjudge.server.submit.vo.SubmissionVO;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -12,9 +15,14 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/submit")
@@ -69,6 +77,53 @@ public class SubmitController {
         JudgeRequest judgeRequest
     ) {
         return Result.success(submitService.judge(judgeRequest));
+    }
+
+    @GetMapping("/{submissionId}")
+    @Operation(
+        summary = "查询提交详情",
+        description = "允许提交者本人或管理员查询提交详情，返回提交源码与测试点测评摘要。",
+        operationId = "getSubmission"
+    )
+    public Result<SubmissionVO> getSubmission(
+        @Parameter(description = "提交 ID", example = "3001")
+        @PathVariable Long submissionId
+    ) {
+        return Result.success(submitService.getSubmission(submissionId));
+    }
+
+    @GetMapping("/contest/{contestId}/user/{userId}")
+    @Operation(
+        summary = "查询用户在比赛中的全部提交",
+        description = "公开查询指定用户在指定比赛中的全部非 Agent 提交，不返回源码和测试点详情。"
+            + " problemName 已按比赛题号拼接为 A. name，前端可直接展示；题目不存在时为 null。",
+        operationId = "queryUserContestSubmissions"
+    )
+    public Result<List<SubmissionListItemVO>> queryUserContestSubmissions(
+        @Parameter(description = "比赛 ID", example = "2001")
+        @PathVariable Long contestId,
+        @Parameter(description = "用户 ID", example = "1")
+        @PathVariable Long userId
+    ) {
+        return Result.success(submitService.queryUserContestSubmissions(contestId, userId));
+    }
+
+    @GetMapping("/user/{userId}")
+    @Operation(
+        summary = "分页查询用户全部提交",
+        description = "公开分页查询指定用户的全部非 Agent 提交，包含比赛提交和非比赛提交，不返回源码和测试点详情。"
+            + " problemName 已按题目 ID 拼接为 #123. name，前端可直接展示；题目不存在时为 null。",
+        operationId = "queryUserSubmissions"
+    )
+    public Result<SubmissionPageVO> queryUserSubmissions(
+        @Parameter(description = "用户 ID", example = "1")
+        @PathVariable Long userId,
+        @Parameter(description = "当前页码，从 1 开始")
+        @RequestParam(defaultValue = "1") Long current,
+        @Parameter(description = "每页数量，最大 100")
+        @RequestParam(defaultValue = "30") Long size
+    ) {
+        return Result.success(submitService.queryUserSubmissions(userId, current, size));
     }
 
 }

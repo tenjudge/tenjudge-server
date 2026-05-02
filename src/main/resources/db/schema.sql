@@ -45,6 +45,7 @@ CREATE TABLE submission (
     type VARCHAR(32) NOT NULL,
     problem_id BIGINT,
     submitter_id BIGINT,
+    is_agent BOOLEAN NOT NULL DEFAULT FALSE,
     submit_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     contest_id BIGINT,
     language VARCHAR(32) NOT NULL,

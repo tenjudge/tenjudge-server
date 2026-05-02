@@ -21,6 +21,7 @@ public class Submission {
     private String type;
     private Long problemId;
     private Long submitterId;
+    private Boolean isAgent;
     private LocalDateTime submitTime;
     private Long contestId;
     private String language;

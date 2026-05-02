@@ -8,6 +8,14 @@
 
 提交成功后接口会返回本次提交的 `submissionId`，用于前端继续查询或关联后续判题结果。
 
+提交详情通过 `GET /submit/{submissionId}` 查询，允许提交者本人或管理员查看。详情会返回题目 ID、题目名称、提交时间、语言、整体状态、最大运行时间、最大内存、整体测评信息、提交源码和测试点明细；若提交仍在排队或测评中，测试点明细为空列表，整体耗时、内存和信息字段可为空。
+
+提交列表支持公开查询，不要求登录，且只返回非 Agent 提交：
+- `GET /submit/contest/{contestId}/user/{userId}`：查询某用户在某比赛中的全部提交，不分页。
+- `GET /submit/user/{userId}?current=1&size=30`：分页查询某用户全部提交，包含比赛提交和非比赛提交。
+
+列表项只返回 `submissionId`、`problemName`、`language`、`status`、`time`、`memory`、`submitTime`，不会返回源码或测试点明细。`problemName` 由服务端拼接完成：比赛内列表格式为 `A. name`，用户全部提交列表格式为 `#123. name`；若题目元数据不存在，则返回 `null`。
+
 **2. Hack 提交 `hack`**：使用数据生成器hack另一份提交的代码，主要用于Agent构造测试数据，验证用户代码出错的原因。输入为数据生成器代码文件、被hack的代码文件
 
 **3. 运行提交 `run`**： 直接运行一份代码，并支持使用数据生成器生成输入数据。输入为被运行代码文件、数据生成器代码文件（可选）
@@ -19,7 +27,8 @@
 id 提交编号（必填）
 type 任务类型（judge、hack、run、check）（必填）
 problem_id 题目id
-submitter_id 提交者id，由AI提交则为空
+submitter_id 提交者id，Agent 提交也记录触发提交的登录用户id
+is_agent 是否为 Agent 提交，默认为 false
 submit_time 提交时间，自动生成（必填）
 contest_id 所属比赛id
 language 提交代码的语言（必填）
@@ -67,14 +76,31 @@ submission/<submission_id>/
     code   # 当前实现固定使用该对象名，语言信息单独记录在 submission.language
 ```
 
+查询提交详情时会从该对象读取源码。如果数据库存在提交记录但 MinIO 中源码对象读取失败，按系统异常处理，避免掩盖数据库与对象存储的不一致。
+
 ## 实现细节
 
 ### 提交权限鉴定
 
-Agent 提交不会记录 submitter_id 或 contest_id
-contest_id 只有在比赛时间中且是参赛队员才会被记录，一旦记录就代表当前提交会被判定为比赛提交且记入榜单
+Agent 提交会记录触发提交的登录用户id，并通过 `is_agent` 区分提交来源。
+contest_id 只有在比赛时间中且是参赛队员才会被记录，一旦记录就代表当前提交会被判定为比赛提交。后续榜单或正式成绩统计需要根据业务规则决定是否排除 `is_agent = true` 的提交。
 
 对于测评请求：
 - `public` 题直接放行，不区分是否携带 `contestId`。
 - `private` 题仅允许在比赛进行中提交，且要求题目属于该比赛、当前用户已报名比赛。
 - 对于比赛中的 `private` 题，**不允许非管理员用户的 Agent 提交**，防止选手通过Agent看到测评数据。
+
+### 提交详情查询
+
+- `GET /submit/{submissionId}` 必须登录。
+- 提交者本人可以查看 `submitter_id` 等于当前登录用户 ID 的提交；管理员和超级管理员可以查看所有提交。
+- 题目不存在时仍返回提交详情，`problemName` 置为空，避免历史提交因为题目元数据缺失无法查看。
+- `submission_detail` 按 `test_case_id` 升序返回；无明细时返回空列表。
+
+### 提交列表查询
+
+- `GET /submit/contest/{contestId}/user/{userId}` 和 `GET /submit/user/{userId}` 均为公开接口，不校验登录态。
+- 列表查询只包含 `is_agent = false` 的提交，避免 Agent 提交混入普通用户提交历史。
+- 列表查询不读取 MinIO 源码，不查询 `submission_detail`，只使用 `submission`、`problem` 和比赛内题目编排信息组装摘要。
+- 比赛内列表按 `contest_problem.problem_index` 拼接题目展示名；用户全部提交列表按 `problem_id` 拼接题目展示名。
+- 列表按 `submit_time DESC, id DESC` 返回；分页接口每页数量最大为 100。

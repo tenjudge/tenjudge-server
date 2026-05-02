@@ -173,8 +173,11 @@
 ### 3.4 Submit
 
 - 提交流程至少包含权限检查、提交落库、代码上传 MinIO、发送 MQ 消息四步。
-- Agent 提交与用户提交在鉴权上复用后端逻辑，但在业务记录上不完全等价，尤其是 `submitter_id` 和比赛提交限制。
+- Agent 提交与用户提交在鉴权上复用后端逻辑；`submitter_id` 统一记录触发提交的登录用户，`is_agent` 用于区分提交来源，正式成绩或榜单统计需要明确是否过滤 Agent 提交。
 - 比赛中题目的 Agent 提交限制属于安全边界，修改相关逻辑时必须重点复核。
+- 提交详情接口 `GET /submit/{submissionId}` 允许提交者本人、管理员和超级管理员查看；源码从 MinIO `submission/{submissionId}/code` 读取，测试点明细按 `test_case_id` 升序返回，题目不存在时 `problemName` 返回空。
+- 提交列表接口 `GET /submit/contest/{contestId}/user/{userId}` 与 `GET /submit/user/{userId}` 公开可查，不做登录鉴权；列表只能返回非 Agent 提交，且不得返回源码或测试点明细。
+- 提交列表中的 `problemName` 由服务端拼接展示名：比赛内格式为 `A. name`，用户全部提交列表格式为 `#123. name`；题目元数据不存在时返回 `null`。
 
 ## 4. 修改与验证要求
 

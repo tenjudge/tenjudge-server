@@ -32,4 +32,25 @@ public class SubmitRequestChecker {
             throw new BizException(Code.SUBMIT_REQUEST_INVALID, "isAgent is required");
         }
     }
+
+    public void checkUserContestSubmissionListRequest(Long contestId, Long userId) {
+        if (contestId == null || contestId <= 0) {
+            throw new BizException(Code.SUBMIT_REQUEST_INVALID, "contestId is invalid");
+        }
+        if (userId == null || userId <= 0) {
+            throw new BizException(Code.SUBMIT_REQUEST_INVALID, "userId is invalid");
+        }
+    }
+
+    public void checkUserSubmissionPageRequest(Long userId, Long current, Long size) {
+        if (userId == null || userId <= 0) {
+            throw new BizException(Code.SUBMIT_REQUEST_INVALID, "userId is invalid");
+        }
+        if (current == null || current < 1) {
+            throw new BizException(Code.SUBMIT_REQUEST_INVALID, "current is invalid");
+        }
+        if (size == null || size < 1 || size > 100) {
+            throw new BizException(Code.SUBMIT_REQUEST_INVALID, "size is invalid");
+        }
+    }
 }

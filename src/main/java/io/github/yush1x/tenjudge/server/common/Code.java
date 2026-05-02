@@ -34,6 +34,7 @@ public enum Code {
     CONTEST_CANCEL_REGISTER_FAILED(30006, "cancel register failed"),
 
     SUBMIT_REQUEST_INVALID(40001, "submit request invalid"),
+    SUBMISSION_NOT_FOUND(40002, "submission not found"),
 
 
 
