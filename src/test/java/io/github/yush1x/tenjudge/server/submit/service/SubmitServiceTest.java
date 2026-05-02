@@ -3,8 +3,10 @@ package io.github.yush1x.tenjudge.server.submit.service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.github.yush1x.tenjudge.server.auth.service.AuthService;
 import io.github.yush1x.tenjudge.server.common.Code;
+import io.github.yush1x.tenjudge.server.contest.entity.Contest;
 import io.github.yush1x.tenjudge.server.contest.entity.ContestProblem;
 import io.github.yush1x.tenjudge.server.contest.persistence.ContestProblemQueryService;
+import io.github.yush1x.tenjudge.server.contest.persistence.ContestQueryService;
 import io.github.yush1x.tenjudge.server.exception.BizException;
 import io.github.yush1x.tenjudge.server.infra.MinioService;
 import io.github.yush1x.tenjudge.server.problem.entity.Problem;
@@ -30,6 +32,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -41,6 +45,7 @@ class SubmitServiceTest {
     private MinioService minioService;
     private ProblemQueryService problemQueryService;
     private ContestProblemQueryService contestProblemQueryService;
+    private ContestQueryService contestQueryService;
     private SubmitService submitService;
 
     @BeforeEach
@@ -54,6 +59,7 @@ class SubmitServiceTest {
         ProblemPermissionChecker problemPermissionChecker = mock(ProblemPermissionChecker.class);
         problemQueryService = mock(ProblemQueryService.class);
         contestProblemQueryService = mock(ContestProblemQueryService.class);
+        contestQueryService = mock(ContestQueryService.class);
 
         submitService = new SubmitService(
                 authService,
@@ -65,7 +71,8 @@ class SubmitServiceTest {
                 problemPermissionChecker,
                 problemQueryService,
                 contestProblemQueryService,
-                new SubmitRequestChecker()
+                new SubmitRequestChecker(),
+                contestQueryService
         );
     }
 
@@ -129,7 +136,7 @@ class SubmitServiceTest {
         BizException ex = assertThrows(BizException.class, () -> submitService.getSubmission(3001L));
 
         assertEquals(Code.SUBMISSION_NOT_FOUND, ex.getCode());
-        verifyNoInteractions(problemQueryService, submissionDetailQueryService, minioService);
+        verifyNoInteractions(problemQueryService, submissionDetailQueryService, minioService, contestQueryService);
     }
 
     @Test
@@ -145,7 +152,7 @@ class SubmitServiceTest {
         BizException ex = assertThrows(BizException.class, () -> submitService.getSubmission(3001L));
 
         assertEquals(Code.FORBIDDEN, ex.getCode());
-        verifyNoInteractions(problemQueryService, submissionDetailQueryService, minioService);
+        verifyNoInteractions(problemQueryService, submissionDetailQueryService, minioService, contestQueryService);
     }
 
     @Test
@@ -170,6 +177,67 @@ class SubmitServiceTest {
         assertEquals(3001L, result.getId());
         assertEquals("java", result.getLanguage());
         assertEquals("class Main {}", result.getCode());
+    }
+
+    @Test
+    void getSubmission_runningContestOwnedSubmission_hidesDetails() throws Exception {
+        Submission submission = Submission.builder()
+                .id(3001L)
+                .problemId(1001L)
+                .submitterId(1L)
+                .contestId(2001L)
+                .language("cpp")
+                .status("ACCEPTED")
+                .build();
+        Contest contest = Contest.builder()
+                .id(2001L)
+                .endTime(LocalDateTime.now().plusDays(1))
+                .build();
+
+        when(authService.checkLogin()).thenReturn(1L);
+        when(submissionQueryService.select(3001L)).thenReturn(submission);
+        when(problemQueryService.select(1001L)).thenReturn(null);
+        when(contestQueryService.select(2001L)).thenReturn(contest);
+        when(minioService.read("submission/3001/code")).thenReturn("int main(){}");
+
+        SubmissionVO result = submitService.getSubmission(3001L);
+
+        assertEquals(0, result.getDetails().size());
+        verify(submissionDetailQueryService, never()).selectBySubmissionId(3001L);
+    }
+
+    @Test
+    void getSubmission_endedContestOwnedSubmission_returnsDetails() throws Exception {
+        Submission submission = Submission.builder()
+                .id(3001L)
+                .problemId(1001L)
+                .submitterId(1L)
+                .contestId(2001L)
+                .language("cpp")
+                .status("ACCEPTED")
+                .build();
+        Contest contest = Contest.builder()
+                .id(2001L)
+                .endTime(LocalDateTime.now().minusDays(1))
+                .build();
+        SubmissionDetail detail = SubmissionDetail.builder()
+                .submissionId(3001L)
+                .testCaseId(1)
+                .status("ACCEPTED")
+                .answer("3")
+                .build();
+
+        when(authService.checkLogin()).thenReturn(1L);
+        when(submissionQueryService.select(3001L)).thenReturn(submission);
+        when(problemQueryService.select(1001L)).thenReturn(null);
+        when(contestQueryService.select(2001L)).thenReturn(contest);
+        when(submissionDetailQueryService.selectBySubmissionId(3001L)).thenReturn(List.of(detail));
+        when(minioService.read("submission/3001/code")).thenReturn("int main(){}");
+
+        SubmissionVO result = submitService.getSubmission(3001L);
+
+        assertEquals(1, result.getDetails().size());
+        assertEquals("3", result.getDetails().get(0).getAnswer());
     }
 
     @Test
