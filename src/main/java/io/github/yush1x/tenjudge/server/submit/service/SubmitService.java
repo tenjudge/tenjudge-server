@@ -3,8 +3,10 @@ package io.github.yush1x.tenjudge.server.submit.service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.github.yush1x.tenjudge.server.auth.service.AuthService;
 import io.github.yush1x.tenjudge.server.common.Code;
+import io.github.yush1x.tenjudge.server.contest.entity.Contest;
 import io.github.yush1x.tenjudge.server.contest.entity.ContestProblem;
 import io.github.yush1x.tenjudge.server.contest.persistence.ContestProblemQueryService;
+import io.github.yush1x.tenjudge.server.contest.persistence.ContestQueryService;
 import io.github.yush1x.tenjudge.server.exception.BizException;
 import io.github.yush1x.tenjudge.server.problem.entity.Problem;
 import io.github.yush1x.tenjudge.server.problem.persistence.ProblemQueryService;
@@ -26,11 +28,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.time.LocalDateTime;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -47,6 +46,7 @@ public class SubmitService {
     private final ProblemQueryService problemQueryService;
     private final ContestProblemQueryService contestProblemQueryService;
     private final SubmitRequestChecker submitRequestChecker;
+    private final ContestQueryService contestQueryService;
 
     @Transactional(rollbackFor = Exception.class)
     public SubmitJudgeVO judge(JudgeRequest judgeRequest) {
@@ -96,18 +96,30 @@ public class SubmitService {
         if (submission == null) {
             throw new BizException(Code.SUBMISSION_NOT_FOUND);
         }
-        if (!userId.equals(submission.getSubmitterId())) {
-            String role = authService.getRole(userId);
-            if (!"admin".equals(role) && !"super_admin".equals(role)) {
-                throw new BizException(Code.FORBIDDEN);
-            }
+        String role = authService.getRole(userId);
+        boolean isAdmin = "admin".equals(role) || "super_admin".equals(role);
+        if (!userId.equals(submission.getSubmitterId()) && !isAdmin) {
+            throw new BizException(Code.FORBIDDEN);
         }
 
         Problem problem = submission.getProblemId() == null ? null : problemQueryService.select(submission.getProblemId());
-        List<SubmissionDetailVO> details = submissionDetailQueryService.selectBySubmissionId(submissionId)
-                .stream()
-                .map(this::toSubmissionDetailVO)
-                .toList();
+
+        boolean shouldAddDetails = true; // 比赛如果还未结束则不能显示具体的测试点信息（管理员除外）
+        if (submission.getContestId() != null) {
+            Contest contest = contestQueryService.select(submission.getContestId());
+            shouldAddDetails = isAdmin || contest == null || !contest.getEndTime().isAfter(LocalDateTime.now());
+        }
+
+        List<SubmissionDetailVO> details;
+        if (shouldAddDetails) {
+            details = submissionDetailQueryService.selectBySubmissionId(submissionId)
+                    .stream()
+                    .map(this::toSubmissionDetailVO)
+                    .toList();
+        } else {
+            details = new ArrayList<>();
+        }
+
 
         String code;
         try {
