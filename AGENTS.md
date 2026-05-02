@@ -168,7 +168,8 @@
 - 修改比赛元数据或题目编排写入链路时，必须在方法末尾同步失效 `contest_problem:contest:{contestId}` 与 `contest_detail:contest:{contestId}`。
 - 不要为了极短的字符串拼接、单行转发或没有复用价值的逻辑新开 private 方法；这类代码优先保持内联，除非能明显降低复杂度或表达业务约束。
 - 比赛题目编排依赖题目真实存在性校验，不能只依赖数据库约束兜底；同一场比赛内 `problemId` 和 `problemIndex` 都必须唯一。
-- `contest_participant.problem_results` 使用 `problemId` 作为 `jsonb` key；修改榜单聚合逻辑时，需同时保证 Java 强类型结构与 PostgreSQL 存储结构一致。
+- `contest_participant.problem_results` 使用 `problemId` 作为 `jsonb` key，Java 值对象为 `contest/dto/ProblemResultDTO`；`acceptedAt` 存首次通过时距离比赛开始的分钟数，不存时间戳。
+- `ContestParticipant.markRejected()` / `markAccepted()` 是榜单题目结果和聚合字段的统一更新入口；修改榜单聚合逻辑时，需同时保证 Java 强类型结构与 PostgreSQL 存储结构一致。
 
 ### 3.4 Submit
 

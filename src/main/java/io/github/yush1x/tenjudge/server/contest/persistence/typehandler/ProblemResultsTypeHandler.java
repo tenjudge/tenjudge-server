@@ -2,7 +2,7 @@ package io.github.yush1x.tenjudge.server.contest.persistence.typehandler;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.github.yush1x.tenjudge.server.contest.entity.ProblemResult;
+import io.github.yush1x.tenjudge.server.contest.dto.ProblemResultDTO;
 import org.apache.ibatis.type.BaseTypeHandler;
 import org.apache.ibatis.type.JdbcType;
 import org.apache.ibatis.type.MappedJdbcTypes;
@@ -17,19 +17,19 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * 将ContestParticipant.problemResults字段（Map<Long, ProblemResult>）序列化为 JSON 存储到数据库中，并在读取时反序列化回 Map。
+ * 将ContestParticipant.problemResults字段（Map<Long, ProblemResultDTO>）序列化为 JSON 存储到数据库中，并在读取时反序列化回 Map。
  */
 
 @MappedTypes(Map.class)
 @MappedJdbcTypes(JdbcType.OTHER)
-public class ProblemResultsTypeHandler extends BaseTypeHandler<Map<Long, ProblemResult>> {
+public class ProblemResultsTypeHandler extends BaseTypeHandler<Map<Long, ProblemResultDTO>> {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper().findAndRegisterModules();
-    private static final TypeReference<Map<Long, ProblemResult>> TYPE_REFERENCE = new TypeReference<>() {
+    private static final TypeReference<Map<Long, ProblemResultDTO>> TYPE_REFERENCE = new TypeReference<>() {
     };
 
     @Override
-    public void setNonNullParameter(PreparedStatement ps, int i, Map<Long, ProblemResult> parameter, JdbcType jdbcType)
+    public void setNonNullParameter(PreparedStatement ps, int i, Map<Long, ProblemResultDTO> parameter, JdbcType jdbcType)
             throws SQLException {
         try {
             // 比赛题目结果以 jsonb 落库，便于后续直接按参赛者维度整体读取和更新
@@ -40,21 +40,21 @@ public class ProblemResultsTypeHandler extends BaseTypeHandler<Map<Long, Problem
     }
 
     @Override
-    public Map<Long, ProblemResult> getNullableResult(ResultSet rs, String columnName) throws SQLException {
+    public Map<Long, ProblemResultDTO> getNullableResult(ResultSet rs, String columnName) throws SQLException {
         return deserialize(rs.getString(columnName));
     }
 
     @Override
-    public Map<Long, ProblemResult> getNullableResult(ResultSet rs, int columnIndex) throws SQLException {
+    public Map<Long, ProblemResultDTO> getNullableResult(ResultSet rs, int columnIndex) throws SQLException {
         return deserialize(rs.getString(columnIndex));
     }
 
     @Override
-    public Map<Long, ProblemResult> getNullableResult(CallableStatement cs, int columnIndex) throws SQLException {
+    public Map<Long, ProblemResultDTO> getNullableResult(CallableStatement cs, int columnIndex) throws SQLException {
         return deserialize(cs.getString(columnIndex));
     }
 
-    private Map<Long, ProblemResult> deserialize(String json) throws SQLException {
+    private Map<Long, ProblemResultDTO> deserialize(String json) throws SQLException {
         if (json == null || json.isBlank()) {
             return new HashMap<>();
         }

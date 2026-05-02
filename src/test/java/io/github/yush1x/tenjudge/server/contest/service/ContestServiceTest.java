@@ -241,6 +241,7 @@ class ContestServiceTest {
         assertEquals("alice", contestParticipant.getUsername());
         assertEquals(0, contestParticipant.getSolvedCount());
         assertEquals(0, contestParticipant.getPenalty());
+        assertEquals(0, contestParticipant.getLastAcceptedTime());
         assertEquals(0, contestParticipant.getProblemResults().size());
     }
 

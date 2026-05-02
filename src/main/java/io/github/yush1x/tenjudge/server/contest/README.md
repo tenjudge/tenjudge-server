@@ -75,7 +75,8 @@ user_id 用户ID，同一场比赛内同一用户仅一条记录
 username 用户名快照
 solved_count 过题数
 penalty 罚时
-problem_results 榜单题目结果快照，jsonb 类型，使用 problemId 作为 key，value 包含 accepted、acceptedAt、wrongAttemptsBeforeAc
+last_accepted_time 最后一次首次通过题目的比赛分钟数，用于 ICPC 榜单同题数同罚时排序，默认 0
+problem_results 榜单题目结果快照，jsonb 类型，使用 problemId 作为 key，value 包含 accepted、acceptedAt、wrongAttemptsBeforeAc；acceptedAt 为首次通过时距离比赛开始的分钟数
 ```
 
 ## Redis

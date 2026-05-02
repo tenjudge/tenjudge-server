@@ -159,6 +159,7 @@ public class ContestService {
         contestParticipant.setUsername(user.getUsername());
         contestParticipant.setSolvedCount(0);
         contestParticipant.setPenalty(0);
+        contestParticipant.setLastAcceptedTime(0);
 
         try {
             contestParticipantUpdateService.insert(contestParticipant);

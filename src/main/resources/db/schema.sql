@@ -100,6 +100,7 @@ CREATE TABLE contest_participant (
     username VARCHAR(255) NOT NULL,
     solved_count INTEGER NOT NULL DEFAULT 0,
     penalty INTEGER NOT NULL DEFAULT 0,
+    last_accepted_time INTEGER NOT NULL DEFAULT 0,
     problem_results JSONB NOT NULL DEFAULT '{}'::jsonb,
 
     PRIMARY KEY (contest_id, user_id)
