@@ -49,6 +49,13 @@
 - 比赛列表按 `startTime` 倒序、`id` 倒序排列，保证相同开始时间下分页顺序稳定。
 - 当前只读取并缓存比赛公共元数据；`ended`、`registered` 由 `ContestService` 中的用户态拼接逻辑补充。
 
+### 查询比赛榜单规则
+- 接口为 `GET /contest/{contestId}/board`，不要求登录。
+- 查询参数为 `current`、`size`，默认分别为 `1`、`50`，`size` 最大为 `100`。
+- 返回对象为 `BoardPageVO`，包含比赛题目列、当前页榜单行和分页元数据。
+- 榜单完全公开，但只有比赛开始后才能展示；比赛开始前返回 `CONTEST_NOT_STARTED`。
+- 比赛不存在时返回 `CONTEST_NOT_FOUND`。
+
 ## 数据库
 `contest` 表：
 ```
@@ -96,3 +103,38 @@ contest_page:current:{current}:size:{size} 比赛分页列表公共数据缓存�
 - 比赛相关缓存 key、缓存加载和失效统一维护在 `ContestCacheService`。
 - `contestProblems` 更新采用全量覆盖，因此写入链路必须在方法末尾通过 `ContestCacheService` 失效 `contest_problem:contest:{contestId}` 和 `contest_detail:contest:{contestId}`。
 - 题面更新可能改变比赛详情中的题目标题摘要，Problem 模块会通过 `ContestCacheService.evictContestDetailsByProblemId(problemId)` 删除引用该题目的 `contest_detail:contest:{contestId}` 缓存。
+
+### 榜单
+一场比赛的榜单数据从比赛开始起，在缓存中保存固定时间（默认值24小时，可修改），若超过这一时间，则访问数据库进行查询。榜单数据的维护依赖数据库中的`constest_participant` 表和Redis缓存中的以下数据结构：
+
+- **`contest:{contest_id}:rank`：** ZSET，缓存排名信息， `(userId, score)`
+- **`contest:{contest_id}:participant:{user_id}:detail`:** String，缓存比赛用户的 `constest_participant` 行数据。
+- **`contest:{contest_id}:exist`** 缓存榜单是否存在，处于可使用的状态，比ZSET TTL少1min
+
+#### 缓存预热
+
+比赛开始前先进行**缓存预热**：ZSET中插入所有用户，String中也先缓存用户的初始空白数据。由于用户无提交时也应该计入榜单并参与排名，故使用缓存预热不仅可以解决缓存击穿，首次访问慢等问题，也可以保证榜单的完整与准确性。
+
+缓存预热时所有数据全部统一设置 TTL 24 小时。由于ZSET修改数据不会改变TTL，故ZSET过期则说明从现在开始需要从数据库读取数据。但String 每次刷新会重置 TTL ，故String刷新时TTL仍需设为和ZSET相同时间，保证起一定比ZSET晚过期。
+
+通过定时任务实现（间隔3min），每次从数据库中查看未来 5 分钟内会开始的比赛，并将其预热。筛选未来比赛依赖 `contest.start_time`，需保留对应数据库索引优化。
+
+当前预热任务只筛选 `now <= startTime <= now + 5min` 的未来比赛；若 `contest:{contest_id}:rank` 或 `contest:{contest_id}:exist` 已存在，则跳过该比赛。多实例部署时通过 `lock:contest:{contestId}:board-preload` 做比赛维度互斥，拿到锁后会再次检查缓存状态再写入。
+
+#### 数据更新
+
+后续处理提交并更新榜单时，会先通过 `lock:contest:{contestId}:user:{userId}:board` 串行化同一用户同一场比赛的榜单更新，再按提交时间和提交 ID 正序读取该用户本场非 Agent 提交并重算 `contest_participant` 整行快照。这样可以避免评测完成消息乱序、重复投递或并发消费导致 AC 前错误次数、罚时和过题数计算不一致。数据库快照更新成功后，再根据当前行数据修改ZSET中某一用户的分数和String中的详细信息。
+
+排名时以过题数为第一关键字，罚时为第二关键字，最后一次有效AC提交时间为第三关键字，故ZSET缓存中，分数的计算逻辑如下：
+
+```
+SOLVED_WEIGHT = 1_000_000_000_000L;
+PENALTY_WEIGHT = 1_000_000L;
+score = -solvedCount * SOLVED_WEIGHT + penalty * PENALTY_WEIGHT + lastAcceptedTime;
+```
+
+*注意：若用户报名时榜单缓存已存在，则须将用户加入Redis缓存中（包括比赛中报名和已经缓存后再报名）。报名补写只检查 `contest:{contest_id}:exist`，避免 `exist` 已过期但 ZSET 短暂残留时重新写入用户详情缓存。*
+
+#### 榜单查询
+
+所有查询操作均为分页查询，每次查询前先检查redis缓存中的ZSET是否过期，过期则直接查询数据库，否则查询缓存。

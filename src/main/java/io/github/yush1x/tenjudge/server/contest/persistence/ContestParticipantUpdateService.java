@@ -1,6 +1,7 @@
 package io.github.yush1x.tenjudge.server.contest.persistence;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import io.github.yush1x.tenjudge.server.contest.entity.ContestParticipant;
 import io.github.yush1x.tenjudge.server.contest.mapper.ContestParticipantMapper;
 import lombok.RequiredArgsConstructor;
@@ -24,5 +25,13 @@ public class ContestParticipantUpdateService {
         wrapper.eq(ContestParticipant::getContestId, contestId)
                 .eq(ContestParticipant::getUserId, userId);
         contestParticipantMapper.delete(wrapper);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void update(ContestParticipant contestParticipant) {
+        LambdaUpdateWrapper<ContestParticipant> wrapper = new LambdaUpdateWrapper<>();
+        wrapper.eq(ContestParticipant::getContestId, contestParticipant.getContestId())
+                .eq(ContestParticipant::getUserId, contestParticipant.getUserId());
+        contestParticipantMapper.update(contestParticipant, wrapper);
     }
 }

@@ -26,6 +26,7 @@ import io.github.yush1x.tenjudge.server.problem.entity.Problem;
 import io.github.yush1x.tenjudge.server.problem.persistence.ProblemQueryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,6 +50,8 @@ public class ContestService {
     private final ContestParticipantQueryService contestParticipantQueryService;
     private final ContestParticipantUpdateService contestParticipantUpdateService;
     private final ContestCacheService contestCacheService;
+    private final RedisTemplate<String, Object> redisTemplate;
+    private final BoardService boardService;
 
 
     // 创建比赛
@@ -163,6 +166,9 @@ public class ContestService {
 
         try {
             contestParticipantUpdateService.insert(contestParticipant);
+
+            boardService.handleRegister(request.getContestId(), contestParticipant);
+
         } catch (DuplicateKeyException ignored) {
             // 并发重复报名由联合主键兜底，保持接口幂等成功。
         }
@@ -184,6 +190,7 @@ public class ContestService {
         }
 
         contestParticipantUpdateService.delete(request.getContestId(), userId); // 未报名时删除 0 行，按接口幂等成功处理。
+        boardService.handleUnregister(request.getContestId(), userId);
     }
 
     // 查询比赛详情，赛前仅管理员/超级管理员可以查看题目列表
@@ -208,7 +215,6 @@ public class ContestService {
 
         return contestDetail;
     }
-
 
     // 分页查询比赛列表
     public ContestPageVO queryContestPage(Long current, Long size) {

@@ -16,6 +16,19 @@
 
 列表项只返回 `submissionId`、`problemName`、`language`、`status`、`time`、`memory`、`submitTime`，不会返回源码或测试点明细。`problemName` 由服务端拼接完成：比赛内列表格式为 `A. name`，用户全部提交列表格式为 `#123. name`；若题目元数据不存在，则返回 `null`。
 
+测评状态包括
+```
+ACCEPTED
+COMPILE_ERROR
+RUNTIME_ERROR
+TIME_LIMIT_EXCEEDED
+MEMORY_LIMIT_EXCEEDED
+WRONG_ANSWER 
+SYSTEM_ERROR - 系统错误，不计入罚时
+SKIPPED - 仅单个测试点信息使用
+PENDING - 等待或在被测评中
+```
+
 **2. Hack 提交 `hack`**：使用数据生成器hack另一份提交的代码，主要用于Agent构造测试数据，验证用户代码出错的原因。输入为数据生成器代码文件、被hack的代码文件
 
 **3. 运行提交 `run`**： 直接运行一份代码，并支持使用数据生成器生成输入数据。输入为被运行代码文件、数据生成器代码文件（可选）

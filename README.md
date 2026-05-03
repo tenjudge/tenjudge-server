@@ -30,12 +30,17 @@ Java 21、Spring Boot 4、Maven、MyBatis-Plus、PostgreSQL、Redis、Redisson�
 - `contest_problem:contest:{contestId}` 用于比赛题目编排缓存
 - `contest_detail:contest:{contestId}` 用于比赛详情聚合缓存，包含比赛元数据与题目标题摘要
 - `contest_page:current:{current}:size:{size}` 用于比赛分页列表公共数据缓存，不包含登录用户报名状态和实时结束状态
+- `contest:{contest_id}:rank` 用于缓存榜单排名，ZSET
+- `contest:{contest_id}:participant:{user_id}:detail` 用于缓存榜单中用户的 `constest_participant` 行数据。
+- `contest:{contest_id}:exist` 缓存榜单是否存在，处于可使用的状态
 
 Redis 缓存 TTL 的实现方式统一写在这里：TTL 配置集中在 `app.cache-ttl` 下，本地开发配置位于 `application-dev.yaml`。业务代码通过 `RedisService` 传入 TTL 名称读取配置，不直接硬编码 `Duration`；
 
 **锁相关：**
 - `lock:problem:{problemId}` 用于题目数据更新的分布式读写锁
 - `lock:cache:{cacheKey}` 用于防止缓存击穿的分布式锁
+- `lock:contest:{contestId}:board-preload` 用于防止多实例定时任务重复预热同一场比赛榜单
+- `lock:contest:{contestId}:user:{userId}:board` 用于串行化同一用户同一场比赛的榜单重算
 
 
 ### RabbitMQ

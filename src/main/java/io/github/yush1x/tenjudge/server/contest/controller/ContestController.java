@@ -5,7 +5,9 @@ import io.github.yush1x.tenjudge.server.contest.dto.CancelRegisterContestRequest
 import io.github.yush1x.tenjudge.server.contest.dto.CreateContestRequest;
 import io.github.yush1x.tenjudge.server.contest.dto.RegisterContestRequest;
 import io.github.yush1x.tenjudge.server.contest.dto.UpdateContestRequest;
+import io.github.yush1x.tenjudge.server.contest.service.BoardService;
 import io.github.yush1x.tenjudge.server.contest.service.ContestService;
+import io.github.yush1x.tenjudge.server.contest.vo.BoardPageVO;
 import io.github.yush1x.tenjudge.server.contest.vo.ContestDetailVO;
 import io.github.yush1x.tenjudge.server.contest.vo.ContestPageVO;
 import io.github.yush1x.tenjudge.server.contest.vo.CreateContestVO;
@@ -33,6 +35,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ContestController {
 
     private final ContestService contestService;
+    private final BoardService boardService;
 
     @GetMapping
     @Operation(
@@ -61,6 +64,23 @@ public class ContestController {
         @PathVariable Long contestId
     ) {
         return Result.success(contestService.queryContestDetail(contestId));
+    }
+
+    @GetMapping("/{contestId}/board")
+    @Operation(
+        summary = "分页查询比赛榜单",
+        description = "公开分页查询指定比赛榜单。比赛不存在返回 CONTEST_NOT_FOUND；比赛开始前返回 CONTEST_NOT_STARTED。",
+        operationId = "queryContestBoardPage"
+    )
+    public Result<BoardPageVO> queryBoardPage(
+        @Parameter(description = "比赛 ID", required = true)
+        @PathVariable Long contestId,
+        @Parameter(description = "当前页码，从 1 开始")
+        @RequestParam(defaultValue = "1") Long current,
+        @Parameter(description = "每页数量，最大 100")
+        @RequestParam(defaultValue = "50") Long size
+    ) {
+        return Result.success(boardService.queryBoardPage(contestId, current, size));
     }
 
     @PostMapping

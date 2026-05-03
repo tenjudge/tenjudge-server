@@ -106,4 +106,5 @@ CREATE TABLE contest_participant (
     PRIMARY KEY (contest_id, user_id)
 );
 
-CREATE UNIQUE INDEX uk_user_contest ON contest_participant (user_id, contest_id);
+CREATE INDEX idx_user_contest ON contest_participant (user_id, contest_id);
+CREATE INDEX idx_contest_participant_contest_solved_penalty_time ON contest_participant (contest_id, solved_count DESC, penalty ASC, last_accepted_time ASC);

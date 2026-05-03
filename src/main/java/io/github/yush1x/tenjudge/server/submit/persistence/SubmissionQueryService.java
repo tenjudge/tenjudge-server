@@ -34,6 +34,17 @@ public class SubmissionQueryService {
         return submissionMapper.selectList(wrapper);
     }
 
+    public List<Submission> selectBoardSubmissions(Long contestId, Long submitterId) {
+        LambdaQueryWrapper<Submission> wrapper = new LambdaQueryWrapper<>();
+        wrapper.select(Submission::getId, Submission::getProblemId, Submission::getSubmitTime, Submission::getStatus)
+                .eq(Submission::getContestId, contestId)
+                .eq(Submission::getSubmitterId, submitterId)
+                .eq(Submission::getIsAgent, false)
+                .orderByAsc(Submission::getSubmitTime)
+                .orderByAsc(Submission::getId);
+        return submissionMapper.selectList(wrapper);
+    }
+
     public Page<Submission> selectPageBySubmitterId(Long submitterId, long current, long size) {
         /*
         索引优化：

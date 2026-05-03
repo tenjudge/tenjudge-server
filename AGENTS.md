@@ -166,6 +166,7 @@
 - `contest/{contestId}` 会缓存比赛详情聚合结果（比赛元数据与题目标题摘要），TTL 名称使用 `contest-detail`，新增缓存 key 或 TTL 名称时必须同步更新根 `README.md` 的 Redis 小节。
 - `GET /contest` 会缓存比赛分页列表公共数据，TTL 名称使用 `contest-list`；登录用户报名态和实时结束状态不要写入分页公共缓存，后续应只在 `ContestService` 中按请求拼接。
 - 修改比赛元数据或题目编排写入链路时，必须在方法末尾同步失效 `contest_problem:contest:{contestId}` 与 `contest_detail:contest:{contestId}`。
+- 榜单预热只筛选未来 5 分钟内开始且尚未存在 `contest:{contestId}:rank` / `contest:{contestId}:exist` 的比赛；预热写入必须通过 `lock:contest:{contestId}:board-preload` 做比赛维度互斥。
 - 不要为了极短的字符串拼接、单行转发或没有复用价值的逻辑新开 private 方法；这类代码优先保持内联，除非能明显降低复杂度或表达业务约束。
 - 比赛题目编排依赖题目真实存在性校验，不能只依赖数据库约束兜底；同一场比赛内 `problemId` 和 `problemIndex` 都必须唯一。
 - `contest_participant.problem_results` 使用 `problemId` 作为 `jsonb` key，Java 值对象为 `contest/dto/ProblemResultDTO`；`acceptedAt` 存首次通过时距离比赛开始的分钟数，不存时间戳。

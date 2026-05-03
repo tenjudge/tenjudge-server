@@ -28,6 +28,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.data.redis.core.RedisTemplate;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -56,6 +57,8 @@ class ContestServiceTest {
     private ContestParticipantQueryService contestParticipantQueryService;
     private ContestParticipantUpdateService contestParticipantUpdateService;
     private ContestCacheService contestCacheService;
+    private RedisTemplate<String, Object> redisTemplate;
+    private BoardService boardService;
     private ContestService contestService;
 
     @BeforeEach
@@ -69,6 +72,8 @@ class ContestServiceTest {
         contestParticipantQueryService = mock(ContestParticipantQueryService.class);
         contestParticipantUpdateService = mock(ContestParticipantUpdateService.class);
         contestCacheService = mock(ContestCacheService.class);
+        redisTemplate = mock(RedisTemplate.class);
+        boardService = mock(BoardService.class);
         contestService = new ContestService(
                 authService,
                 new ContestRequestChecker(),
@@ -79,7 +84,9 @@ class ContestServiceTest {
                 userQueryService,
                 contestParticipantQueryService,
                 contestParticipantUpdateService,
-                contestCacheService
+                contestCacheService,
+                redisTemplate,
+                boardService
         );
         when(authService.checkAdmin()).thenReturn(1L);
         when(authService.checkLogin()).thenReturn(1L);
