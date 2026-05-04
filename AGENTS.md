@@ -43,10 +43,10 @@
 
 - 更新面向开发者或使用者的项目说明和业务背景。
 - 包括但不限于：业务规则、架构设计、核心流程、重要实现细节、数据库结构、配置项、部署方式、接口说明、使用示例和常见问题。
-- 当本次改动影响系统行为、对外能力、配置方式、数据模型、接口契约或运行方式时，应同步更新。
-- 若改动不影响核心业务流程、对外能力、接口契约、配置方式、数据模型或其他关键约定，而只是内部实现整理、局部重构、命名调整、目录调整、包路径变更、基础设施类归位等次要改动，默认只更新 `AGENTS.md`，不要求同步修改 `README.md`。
+- 默认不要修改 `README.md`；除非本次改动属于非常关键的业务变化，明显影响开发者或使用者必须知道的核心业务流程、对外能力、配置方式、数据模型、接口契约或运行方式，否则只更新 `AGENTS.md`。
+- 普通接口补充、字段调整、内部实现整理、局部重构、命名调整、目录调整、包路径变更、基础设施类归位、索引补充、测试方式变化等默认只更新 `AGENTS.md`，不修改 `README.md`。
 - 确保 README 中的说明与当前代码实现一致，避免保留过期描述。
-- 数据库建表语句统一维护在 `src/main/resources/db/schema.sql`，各模块 README 只保留文字说明；后续修改数据库结构时，必须同步更新对应 README 与该 SQL 文件。
+- 数据库建表语句统一维护在 `src/main/resources/db/schema.sql`；后续修改数据库结构时，必须同步更新该 SQL 文件。只有非常关键的数据模型变化才同步更新 README。
 
 ### 1.4 当前项目规范
 
@@ -54,6 +54,7 @@
 - 所有返回前端的数据对象统一使用 `VO` 命名，放在各模块 `vo` 包中。禁止直接返回 `entity`。
 - 请求对象统一放在 `dto` 包中，但类名必须以 `Request` 结尾，例如 `LoginRequest`、`RegisterRequest`、`ProblemUpdateRequest`、`JudgeRequest`。
 - `DTO` 在本仓库中表示目录归类，不再作为请求类名后缀使用。新增请求对象时不要使用 `*DTO` 命名。
+- multipart/form-data 接口若需要在 OpenAPI schema 中展示文件字段，应优先使用 `@ModelAttribute` 绑定 `*Request` 请求对象，并在请求对象中声明 `MultipartFile` 字段；不要让文件只以裸 `MultipartFile` 参数散落在 Controller 方法签名里。
 - 新增接口时，若返回为空，使用 `Result<Void>` 并调用 `Result.success()`。
 - 可预期的业务失败必须抛 `BizException`，并绑定 `Code`；不要在 service 中吞异常后返回成功。
 - 未预期异常应上抛给 `GlobalExceptionHandler` 兜底，不要在业务代码中随意 catch 后改造成无语义的成功返回。
@@ -139,6 +140,8 @@
 - 登录、注册、权限检查都应优先复用 `AuthService` 与 `AuthChecker`。
 - 参数合法性优先放在 `AuthRequestChecker`，不要把用户名、邮箱、角色规则散落到 Controller。
 - 管理员与超级管理员的注册限制属于业务规则，修改注册逻辑时必须保留。
+- 公开用户查询接口 `GET /auth/user` 支持通过 `userId` 或 `username` 查询，两个参数必须且只能传一个；返回 `UserVO` 时必须将 `email` 置空，`role` 正常返回。
+- 修改用户角色接口 `PUT /auth/admin/user/role` 只能由超级管理员调用，且超级管理员不能修改自己的角色；写库成功后必须删除 `user:role:{userId}` 缓存。
 - 用户角色缓存 `user:role:{userId}` 通过 `RedisService` 写入，TTL 名称使用 `user-role`，不要在 `auth` 模块直接操作 `RedisTemplate` 配置过期时间。
 
 ### 3.2 Problem
@@ -149,6 +152,7 @@
 - 题目缓存读取、题目标签缓存读取、公开题目分页缓存读取、题目缓存失效和题面 VO 构建统一维护在 `ProblemCacheService`；`ProblemService` 只负责权限、事务和写入编排。
 - 题目缓存 TTL 名称统一使用 `problem`、`problem-tags` 与 `problem-list`，由 `RedisService` 按 TTL 名称读取配置，不要在业务代码中硬编码 `Duration`。
 - 公开题目分页接口 `GET /problem` 只返回 public 题目，按 `problemId` 升序排列，列表项只包含 `id`、`name`、`difficulty`。
+- 管理员题目分页接口 `GET /admin/problem` 与 `GET /admin/problem/mine` 必须先走 `AuthService.checkAdmin()`，直接通过 `ProblemQueryService` 查询数据库，不使用 Redis 缓存；列表项只包含 `id`、`name`、`visibility`，按 `problemId` 支持 `asc` / `desc` 排序。
 - 题面更新后必须通过 `ProblemCacheService` 失效 `problem:{problemId}` 与 `problem_tags:{problemId}`，并通过 `ContestCacheService` 失效引用该题目的比赛详情缓存；公开题目分页缓存 `problem_page:current:{current}:size:{size}` 依赖短 TTL 自动更新，不在写入链路批量删除。
 - 修改题目可见性只能由超级管理员执行，数据库写入放在 `ProblemUpdateService.updateVisibility()`，写入成功后必须失效题目详情缓存；公开题目分页缓存允许在短 TTL 内短暂陈旧。
 - 题目权限判断优先查看 `ProblemPermissionChecker`，不要在多个接口里复制粘贴可见性规则。

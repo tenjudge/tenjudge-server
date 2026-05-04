@@ -1,9 +1,11 @@
 package io.github.yush1x.tenjudge.server.problem.controller;
 
 import io.github.yush1x.tenjudge.server.common.Result;
+import io.github.yush1x.tenjudge.server.problem.dto.ProblemCreateRequest;
 import io.github.yush1x.tenjudge.server.problem.dto.ProblemUpdateRequest;
 import io.github.yush1x.tenjudge.server.problem.dto.ProblemVisibilityUpdateRequest;
 import io.github.yush1x.tenjudge.server.problem.service.ProblemService;
+import io.github.yush1x.tenjudge.server.problem.vo.AdminProblemPageVO;
 import io.github.yush1x.tenjudge.server.problem.vo.CreateProblemVO;
 import io.github.yush1x.tenjudge.server.problem.vo.ProblemPageVO;
 import io.github.yush1x.tenjudge.server.problem.vo.ProblemVO;
@@ -11,8 +13,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequiredArgsConstructor
@@ -35,22 +37,54 @@ public class ProblemController {
         return Result.success(problemService.queryProblemPage(current, size));
     }
 
-    @PostMapping("/problem")
+    @GetMapping("/admin/problem")
     @Operation(
-        summary = "创建题目",
-        description = "上传题目 zip 包并创建题目，服务端会校验题目文件结构、配置内容和相关业务约束。"
+        summary = "管理员分页查询题目列表",
+        description = "管理员直接从数据库分页查询全部题目，返回 id、name、visibility，按 problemId 支持 asc/desc 排序，不使用 Redis 缓存。"
     )
-    public Result<CreateProblemVO> create(MultipartFile zipFile) {
-        return Result.success(problemService.create(zipFile));
+    public Result<AdminProblemPageVO> queryAdminPage(
+        @Parameter(description = "当前页码，从 1 开始")
+        @RequestParam(defaultValue = "1") Long current,
+        @Parameter(description = "每页数量，最大 100")
+        @RequestParam(defaultValue = "30") Long size,
+        @Parameter(description = "排序方向：asc 或 desc，按 problemId 排序")
+        @RequestParam(defaultValue = "desc") String order
+    ) {
+        return Result.success(problemService.queryAdminProblemPage(current, size, order));
     }
 
-    @PutMapping("/problem")
+    @GetMapping("/admin/problem/mine")
+    @Operation(
+        summary = "管理员分页查询自己创建的题目列表",
+        description = "管理员直接从数据库分页查询当前登录管理员创建的题目，返回 id、name、visibility，按 problemId 支持 asc/desc 排序，不使用 Redis 缓存。"
+    )
+    public Result<AdminProblemPageVO> queryMyAdminPage(
+        @Parameter(description = "当前页码，从 1 开始")
+        @RequestParam(defaultValue = "1") Long current,
+        @Parameter(description = "每页数量，最大 100")
+        @RequestParam(defaultValue = "30") Long size,
+        @Parameter(description = "排序方向：asc 或 desc，按 problemId 排序")
+        @RequestParam(defaultValue = "desc") String order
+    ) {
+        return Result.success(problemService.queryMyAdminProblemPage(current, size, order));
+    }
+
+    @PostMapping(value = "/problem", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(
+        summary = "创建题目",
+        description = "通过 multipart/form-data 上传 zipFile 文件并创建题目，服务端会校验题目文件结构、配置内容和相关业务约束。"
+    )
+    public Result<CreateProblemVO> create(@ModelAttribute ProblemCreateRequest request) {
+        return Result.success(problemService.create(request.getZipFile()));
+    }
+
+    @PutMapping(value = "/problem", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(
         summary = "更新题目",
-        description = "更新题目元数据和可选的题目 zip 包。若上传新文件，服务端会在更新过程中同步处理校验、对象存储切换和版本变更。"
+        description = "通过 multipart/form-data 提交题目 id 和 zipFile 文件。若上传新文件，服务端会在更新过程中同步处理校验、对象存储切换和版本变更。"
     )
-    public Result<Void> update(ProblemUpdateRequest problemUpdateRequest, MultipartFile zipFile) {
-        problemService.update(problemUpdateRequest, zipFile);
+    public Result<Void> update(@ModelAttribute ProblemUpdateRequest problemUpdateRequest) {
+        problemService.update(problemUpdateRequest, problemUpdateRequest.getZipFile());
         return Result.success();
     }
 

@@ -1,5 +1,6 @@
 package io.github.yush1x.tenjudge.server.problem.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.github.yush1x.tenjudge.server.auth.service.AuthService;
 import io.github.yush1x.tenjudge.server.common.Code;
 import io.github.yush1x.tenjudge.server.contest.dto.ContestProblemDTO;
@@ -13,6 +14,7 @@ import io.github.yush1x.tenjudge.server.problem.persistence.ProblemQueryService;
 import io.github.yush1x.tenjudge.server.problem.persistence.ProblemTagUpdateService;
 import io.github.yush1x.tenjudge.server.problem.persistence.ProblemUpdateService;
 import io.github.yush1x.tenjudge.server.problem.storage.FileService;
+import io.github.yush1x.tenjudge.server.problem.vo.AdminProblemPageVO;
 import io.github.yush1x.tenjudge.server.problem.vo.ProblemPageVO;
 import io.github.yush1x.tenjudge.server.problem.vo.ProblemVO;
 import org.junit.jupiter.api.Test;
@@ -91,6 +93,48 @@ class ProblemServiceTest {
         assertEquals(expected, result);
         verify(problemRequestChecker).checkProblemPageRequest(1L, 10L);
         verify(problemCacheService).getProblemPage(1L, 10L);
+    }
+
+    @Test
+    void queryAdminProblemPage_checksAdminAndReadsDatabasePage() {
+        Problem problem = buildProblem();
+        problem.setVisibility("private");
+        Page<Problem> page = new Page<>(1, 10);
+        page.setRecords(List.of(problem));
+        page.setTotal(1);
+        when(problemQueryService.selectAdminPage(1L, 10L, "desc")).thenReturn(page);
+
+        AdminProblemPageVO result = problemService.queryAdminProblemPage(1L, 10L, "DESC");
+
+        assertEquals(1L, result.getTotal());
+        assertEquals(1L, result.getRecords().getFirst().getId());
+        assertEquals("A + B", result.getRecords().getFirst().getName());
+        assertEquals("private", result.getRecords().getFirst().getVisibility());
+        verify(authService).checkAdmin();
+        verify(problemRequestChecker).checkProblemPageRequest(1L, 10L);
+        verify(problemRequestChecker).checkProblemPageOrder("desc");
+        verify(problemQueryService).selectAdminPage(1L, 10L, "desc");
+        verifyNoInteractions(problemCacheService);
+    }
+
+    @Test
+    void queryMyAdminProblemPage_filtersByCurrentAdminAndReadsDatabasePage() {
+        Problem problem = buildProblem();
+        Page<Problem> page = new Page<>(1, 10);
+        page.setRecords(List.of(problem));
+        page.setTotal(1);
+        when(authService.checkAdmin()).thenReturn(2L);
+        when(problemQueryService.selectAdminPageByAuthor(1L, 10L, 2L, "asc")).thenReturn(page);
+
+        AdminProblemPageVO result = problemService.queryMyAdminProblemPage(1L, 10L, "asc");
+
+        assertEquals(1L, result.getTotal());
+        assertEquals("public", result.getRecords().getFirst().getVisibility());
+        verify(authService).checkAdmin();
+        verify(problemRequestChecker).checkProblemPageRequest(1L, 10L);
+        verify(problemRequestChecker).checkProblemPageOrder("asc");
+        verify(problemQueryService).selectAdminPageByAuthor(1L, 10L, 2L, "asc");
+        verifyNoInteractions(problemCacheService);
     }
 
     @Test

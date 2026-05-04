@@ -29,6 +29,7 @@ CREATE TABLE problem (
 );
 
 CREATE INDEX idx_problem_visibility_id ON problem (visibility, id ASC);
+CREATE INDEX idx_problem_author_id_id ON problem (author_id, id ASC);
 
 
 CREATE TABLE problem_tag (

@@ -16,6 +16,8 @@ public enum Code {
     LOGIN_FAILED(10008, "login failed"),
     USERNAME_ALREADY_EXISTS(10009, "username already exists"),
     EMAIL_ALREADY_EXISTS(10010, "email already exists"),
+    USER_NOT_FOUND(10011, "user not found"),
+    USER_REQUEST_INVALID(10012, "user request invalid"),
 
     UNZIP_FAILED(20001, "unzip failed"),
     CONFIG_FILE_INVALID(20002, "config file invalid"),

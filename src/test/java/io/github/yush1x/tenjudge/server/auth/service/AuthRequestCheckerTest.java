@@ -1,6 +1,7 @@
 package io.github.yush1x.tenjudge.server.auth.service;
 
 import io.github.yush1x.tenjudge.server.auth.dto.RegisterRequest;
+import io.github.yush1x.tenjudge.server.auth.dto.UserRoleUpdateRequest;
 import io.github.yush1x.tenjudge.server.auth.entity.User;
 import io.github.yush1x.tenjudge.server.auth.persistence.UserQueryService;
 import io.github.yush1x.tenjudge.server.common.Code;
@@ -44,6 +45,13 @@ class AuthRequestCheckerTest {
         return dto;
     }
 
+    private UserRoleUpdateRequest roleUpdateRequest(Long userId, String role) {
+        UserRoleUpdateRequest request = new UserRoleUpdateRequest();
+        request.setUserId(userId);
+        request.setRole(role);
+        return request;
+    }
+
     private static Stream<Arguments> registerRequestCases() {
         return Stream.of(
                 Arguments.of("all valid", (Consumer<RegisterRequest>) dto -> {}, null),
@@ -73,6 +81,31 @@ class AuthRequestCheckerTest {
         }
 
         BizException ex = assertThrows(BizException.class, () -> authRequestChecker.checkRegisterRequest(dto));
+        assertEquals(expectedCode, ex.getCode());
+    }
+
+    private static Stream<Arguments> userRoleUpdateRequestCases() {
+        return Stream.of(
+                Arguments.of("all valid", 1L, "admin", null),
+                Arguments.of("request null", null, null, Code.USER_REQUEST_INVALID),
+                Arguments.of("userId null", null, "admin", Code.USER_REQUEST_INVALID),
+                Arguments.of("userId invalid", 0L, "admin", Code.USER_REQUEST_INVALID),
+                Arguments.of("role null", 1L, null, Code.ROLE_INVALID),
+                Arguments.of("role invalid", 1L, "guest", Code.ROLE_INVALID)
+        );
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("userRoleUpdateRequestCases")
+    void checkUserRoleUpdateRequest_cases(String caseName, Long userId, String role, Code expectedCode) {
+        UserRoleUpdateRequest request = "request null".equals(caseName) ? null : roleUpdateRequest(userId, role);
+
+        if (expectedCode == null) {
+            assertDoesNotThrow(() -> authRequestChecker.checkUserRoleUpdateRequest(request));
+            return;
+        }
+
+        BizException ex = assertThrows(BizException.class, () -> authRequestChecker.checkUserRoleUpdateRequest(request));
         assertEquals(expectedCode, ex.getCode());
     }
 

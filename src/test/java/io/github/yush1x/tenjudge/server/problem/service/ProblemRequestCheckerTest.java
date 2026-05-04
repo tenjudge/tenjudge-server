@@ -161,6 +161,20 @@ class ProblemRequestCheckerTest {
         assertEquals(Code.PROBLEM_REQUEST_INVALID, sizeEx.getCode());
     }
 
+    @Test
+    void checkProblemPageOrder_validOrder_doesNotThrow() {
+        assertDoesNotThrow(() -> problemRequestChecker.checkProblemPageOrder("asc"));
+        assertDoesNotThrow(() -> problemRequestChecker.checkProblemPageOrder("desc"));
+    }
+
+    @Test
+    void checkProblemPageOrder_invalidOrder_throwsBizException() {
+        BizException ex = assertThrows(BizException.class, () -> problemRequestChecker.checkProblemPageOrder("latest"));
+
+        assertEquals(Code.PROBLEM_REQUEST_INVALID, ex.getCode());
+        assertEquals("order must be asc or desc", ex.getMessage());
+    }
+
     private ProblemConfig validConfig() {
         ProblemConfig config = new ProblemConfig();
         config.setName("Two Sum");

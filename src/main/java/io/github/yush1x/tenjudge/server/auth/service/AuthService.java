@@ -3,14 +3,17 @@ package io.github.yush1x.tenjudge.server.auth.service;
 import cn.dev33.satoken.secure.BCrypt;
 import io.github.yush1x.tenjudge.server.auth.dto.LoginRequest;
 import io.github.yush1x.tenjudge.server.auth.dto.RegisterRequest;
+import io.github.yush1x.tenjudge.server.auth.dto.UserRoleUpdateRequest;
 import io.github.yush1x.tenjudge.server.auth.entity.User;
 import io.github.yush1x.tenjudge.server.auth.persistence.UserQueryService;
 import io.github.yush1x.tenjudge.server.auth.persistence.UserUpdateService;
 import io.github.yush1x.tenjudge.server.auth.utils.Converter;
 import io.github.yush1x.tenjudge.server.auth.vo.LoginVO;
 import io.github.yush1x.tenjudge.server.auth.vo.RegisterVO;
+import io.github.yush1x.tenjudge.server.auth.vo.UserVO;
 import io.github.yush1x.tenjudge.server.common.Code;
 import io.github.yush1x.tenjudge.server.exception.BizException;
+import io.github.yush1x.tenjudge.server.infra.RedisService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -27,6 +30,7 @@ public class AuthService {
     private final UserUpdateService userUpdateService;
     private final UserQueryService userQueryService;
     private final StpService stpService;
+    private final RedisService redisService;
 
     public Long checkLogin() {
         return authChecker.checkLogin();
@@ -112,6 +116,45 @@ public class AuthService {
 
     public void logout() {
         stpService.logout();
+    }
+
+    // 查询当前登录用户信息，返回给前端前统一转成 VO，避免泄露密码哈希等实体字段
+    public UserVO getCurrentUser() {
+        Long userId = authChecker.checkLogin(); // 当前用户信息只能由已登录用户查看
+        User user = userQueryService.selectById(userId);
+        if (user == null) {
+            throw new BizException(Code.USER_NOT_FOUND);
+        }
+        return Converter.toUserVO(user);
+    }
+
+    // 公开用户信息允许匿名查询，但邮箱属于登录凭据相关字段，返回前必须脱敏。
+    public UserVO getPublicUser(Long userId, String username) {
+        authRequestChecker.checkPublicUserQuery(userId, username);
+        User user = userId != null ? userQueryService.selectById(userId) : userQueryService.selectByUsername(username);
+        if (user == null) {
+            throw new BizException(Code.USER_NOT_FOUND);
+        }
+        UserVO userVO = Converter.toUserVO(user);
+        userVO.setEmail(null);
+        return userVO;
+    }
+
+    public void updateUserRole(UserRoleUpdateRequest request) {
+        authRequestChecker.checkUserRoleUpdateRequest(request);
+        Long operatorId = authChecker.checkSuperAdmin(); // 修改权限属于高危操作，只允许超级管理员执行。
+        if (operatorId.equals(request.getUserId())) {
+            throw new BizException(Code.FORBIDDEN);
+        }
+
+        User user = userQueryService.selectById(request.getUserId());
+        if (user == null) {
+            throw new BizException(Code.USER_NOT_FOUND);
+        }
+        if (!userUpdateService.updateRole(request.getUserId(), request.getRole())) {
+            throw new BizException(Code.USER_NOT_FOUND);
+        }
+        redisService.delete("user:role:" + request.getUserId()); // 角色变更后立即失效权限缓存，避免继续使用旧角色。
     }
 
 }

@@ -1,5 +1,6 @@
 package io.github.yush1x.tenjudge.server.problem.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.github.yush1x.tenjudge.server.auth.service.AuthService;
 import io.github.yush1x.tenjudge.server.common.Code;
 import io.github.yush1x.tenjudge.server.contest.dto.ContestProblemDTO;
@@ -15,6 +16,8 @@ import io.github.yush1x.tenjudge.server.problem.persistence.ProblemTagUpdateServ
 import io.github.yush1x.tenjudge.server.problem.persistence.ProblemUpdateService;
 import io.github.yush1x.tenjudge.server.problem.storage.FileService;
 import io.github.yush1x.tenjudge.server.infra.MinioService;
+import io.github.yush1x.tenjudge.server.problem.vo.AdminProblemListItemVO;
+import io.github.yush1x.tenjudge.server.problem.vo.AdminProblemPageVO;
 import io.github.yush1x.tenjudge.server.problem.vo.CreateProblemVO;
 import io.github.yush1x.tenjudge.server.problem.vo.ProblemPageVO;
 import io.github.yush1x.tenjudge.server.problem.vo.ProblemVO;
@@ -29,7 +32,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -62,6 +67,36 @@ public class ProblemService {
     public ProblemPageVO queryProblemPage(Long current, Long size) {
         problemRequestChecker.checkProblemPageRequest(current, size);
         return problemCacheService.getProblemPage(current, size);
+    }
+
+    /**
+     * 管理员分页查询全部题目列表，直接查数据库，避免后台管理入口读取公开列表缓存。
+     * @param current 当前页码，从 1 开始
+     * @param size 每页数量，最大 100
+     * @param order problemId 排序方向，asc 或 desc
+     * @return 管理员题目分页摘要
+     */
+    public AdminProblemPageVO queryAdminProblemPage(Long current, Long size, String order) {
+        authService.checkAdmin();
+        problemRequestChecker.checkProblemPageRequest(current, size);
+        String normalizedOrder = order == null ? "desc" : order.toLowerCase(Locale.ROOT);
+        problemRequestChecker.checkProblemPageOrder(normalizedOrder);
+        return buildAdminProblemPageVO(problemQueryService.selectAdminPage(current, size, normalizedOrder));
+    }
+
+    /**
+     * 管理员分页查询当前登录管理员创建的题目列表，直接查数据库并按 author_id 收敛数据范围。
+     * @param current 当前页码，从 1 开始
+     * @param size 每页数量，最大 100
+     * @param order problemId 排序方向，asc 或 desc
+     * @return 管理员本人创建的题目分页摘要
+     */
+    public AdminProblemPageVO queryMyAdminProblemPage(Long current, Long size, String order) {
+        Long authorId = authService.checkAdmin();
+        problemRequestChecker.checkProblemPageRequest(current, size);
+        String normalizedOrder = order == null ? "desc" : order.toLowerCase(Locale.ROOT);
+        problemRequestChecker.checkProblemPageOrder(normalizedOrder);
+        return buildAdminProblemPageVO(problemQueryService.selectAdminPageByAuthor(current, size, authorId, normalizedOrder));
     }
 
     /**
@@ -140,6 +175,23 @@ public class ProblemService {
         return problemCacheService.buildRestrictedProblemVO(problem);
     }
 
+    private AdminProblemPageVO buildAdminProblemPageVO(Page<Problem> page) {
+        List<AdminProblemListItemVO> records = new ArrayList<>();
+        for (Problem problem : page.getRecords()) {
+            records.add(AdminProblemListItemVO.builder()
+                    .id(problem.getId())
+                    .name(problem.getName())
+                    .visibility(problem.getVisibility())
+                    .build());
+        }
+        return AdminProblemPageVO.builder()
+                .records(records)
+                .total(page.getTotal())
+                .current(page.getCurrent())
+                .size(page.getSize())
+                .pages(page.getPages())
+                .build();
+    }
 
     /**
      * 新建题目

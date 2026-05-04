@@ -109,4 +109,10 @@ public class ProblemRequestChecker {
         }
     }
 
+    public void checkProblemPageOrder(String order) {
+        if (!"asc".equals(order) && !"desc".equals(order)) {
+            throw new BizException(Code.PROBLEM_REQUEST_INVALID, "order must be asc or desc");
+        }
+    }
+
 }

@@ -3,11 +3,14 @@ package io.github.yush1x.tenjudge.server.auth.service;
 import cn.dev33.satoken.secure.BCrypt;
 import io.github.yush1x.tenjudge.server.auth.dto.LoginRequest;
 import io.github.yush1x.tenjudge.server.auth.dto.RegisterRequest;
+import io.github.yush1x.tenjudge.server.auth.dto.UserRoleUpdateRequest;
 import io.github.yush1x.tenjudge.server.auth.entity.User;
 import io.github.yush1x.tenjudge.server.auth.persistence.UserQueryService;
 import io.github.yush1x.tenjudge.server.auth.persistence.UserUpdateService;
+import io.github.yush1x.tenjudge.server.auth.vo.UserVO;
 import io.github.yush1x.tenjudge.server.common.Code;
 import io.github.yush1x.tenjudge.server.exception.BizException;
+import io.github.yush1x.tenjudge.server.infra.RedisService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,9 +20,11 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDateTime;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
@@ -40,11 +45,21 @@ public class AuthServiceTest {
     @Mock
     StpService stpService;
 
+    @Mock
+    RedisService redisService;
+
     AuthService authService;
 
     @BeforeEach
     public void setUp() {
-        authService = new AuthService(authChecker, new AuthRequestChecker(userQueryService), userUpdateService, userQueryService, stpService);
+        authService = new AuthService(
+                authChecker,
+                new AuthRequestChecker(userQueryService),
+                userUpdateService,
+                userQueryService,
+                stpService,
+                redisService
+        );
     }
 
     private RegisterRequest validRegisterRequest(String role) {
@@ -60,6 +75,13 @@ public class AuthServiceTest {
         LoginRequest request = new LoginRequest();
         request.setAccount(account);
         request.setPassword(password);
+        return request;
+    }
+
+    private UserRoleUpdateRequest roleUpdateRequest(Long userId, String role) {
+        UserRoleUpdateRequest request = new UserRoleUpdateRequest();
+        request.setUserId(userId);
+        request.setRole(role);
         return request;
     }
 
@@ -213,6 +235,145 @@ public class AuthServiceTest {
         assertEquals("token_email", token);
         verify(stpService).login(8L);
         verify(stpService).getTokenValue();
+    }
+
+    @Test
+    // 查询当前用户时，必须先校验登录态，并且只返回前端需要的用户 VO 字段
+    public void getCurrentUser_loginUserExists_returnsUserVO() {
+        LocalDateTime createdAt = LocalDateTime.of(2026, 4, 30, 12, 0);
+        User user = new User();
+        user.setId(7L);
+        user.setUsername("test_user");
+        user.setCreatedAt(createdAt);
+        user.setRole("user");
+        user.setRating(1500);
+        user.setMaxRating(1600);
+        user.setEmail("test@example.com");
+        user.setBio("hello");
+        user.setSolvedCount(42);
+        when(authChecker.checkLogin()).thenReturn(7L);
+        when(userQueryService.selectById(7L)).thenReturn(user);
+
+        UserVO userVO = authService.getCurrentUser();
+
+        assertEquals(7L, userVO.getId());
+        assertEquals("test_user", userVO.getUsername());
+        assertEquals(createdAt, userVO.getCreatedAt());
+        assertEquals("user", userVO.getRole());
+        assertEquals(1500, userVO.getRating());
+        assertEquals(1600, userVO.getMaxRating());
+        assertEquals("test@example.com", userVO.getEmail());
+        assertEquals("hello", userVO.getBio());
+        assertEquals(42, userVO.getSolvedCount());
+    }
+
+    @Test
+    // token 有效但用户记录已不存在时，返回明确业务错误，避免把空用户包装成成功响应
+    public void getCurrentUser_loginUserMissing_throwsUserNotFound() {
+        when(authChecker.checkLogin()).thenReturn(7L);
+        when(userQueryService.selectById(7L)).thenReturn(null);
+
+        BizException ex = assertThrows(BizException.class, () -> authService.getCurrentUser());
+
+        assertEquals(Code.USER_NOT_FOUND, ex.getCode());
+    }
+
+    @Test
+    // 公开用户信息可按 ID 匿名查询，邮箱在返回前脱敏，角色正常返回。
+    public void getPublicUser_byId_returnsUserVOWithoutEmail() {
+        User user = new User();
+        user.setId(7L);
+        user.setUsername("test_user");
+        user.setRole("admin");
+        user.setEmail("test@example.com");
+        user.setBio("hello");
+        when(userQueryService.selectById(7L)).thenReturn(user);
+
+        UserVO userVO = authService.getPublicUser(7L, null);
+
+        assertEquals(7L, userVO.getId());
+        assertEquals("test_user", userVO.getUsername());
+        assertEquals("admin", userVO.getRole());
+        assertNull(userVO.getEmail());
+        assertEquals("hello", userVO.getBio());
+    }
+
+    @Test
+    // 公开用户信息可按用户名匿名查询，查询不到时返回明确的用户不存在业务错误。
+    public void getPublicUser_byUsernameUserMissing_throwsUserNotFound() {
+        when(userQueryService.selectByUsername("test_user")).thenReturn(null);
+
+        BizException ex = assertThrows(BizException.class, () -> authService.getPublicUser(null, "test_user"));
+
+        assertEquals(Code.USER_NOT_FOUND, ex.getCode());
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidPublicUserQueryCases")
+    // 公开用户查询参数必须在 userId 与 username 中二选一，避免模糊查询语义。
+    public void getPublicUser_invalidQuery_throwsUserRequestInvalid(Long userId, String username) {
+        BizException ex = assertThrows(BizException.class, () -> authService.getPublicUser(userId, username));
+
+        assertEquals(Code.USER_REQUEST_INVALID, ex.getCode());
+    }
+
+    private static Stream<Arguments> invalidPublicUserQueryCases() {
+        return Stream.of(
+                Arguments.of(null, null),
+                Arguments.of(7L, "test_user"),
+                Arguments.of(0L, null),
+                Arguments.of(null, "1abc")
+        );
+    }
+
+    @Test
+    // 修改用户角色只能由超级管理员执行，成功后必须删除角色缓存，避免权限判断继续读到旧值。
+    public void updateUserRole_superAdminUpdatesOtherUser_successAndDeletesRoleCache() {
+        UserRoleUpdateRequest request = roleUpdateRequest(8L, "admin");
+        User user = new User();
+        user.setId(8L);
+        user.setRole("user");
+        when(authChecker.checkSuperAdmin()).thenReturn(1L);
+        when(userQueryService.selectById(8L)).thenReturn(user);
+        when(userUpdateService.updateRole(8L, "admin")).thenReturn(true);
+
+        authService.updateUserRole(request);
+
+        verify(userUpdateService).updateRole(8L, "admin");
+        verify(redisService).delete("user:role:8");
+    }
+
+    @Test
+    // 超级管理员不能修改自己的角色，避免误降级后失去最高权限。
+    public void updateUserRole_superAdminUpdatesSelf_throwsForbidden() {
+        UserRoleUpdateRequest request = roleUpdateRequest(1L, "user");
+        when(authChecker.checkSuperAdmin()).thenReturn(1L);
+
+        BizException ex = assertThrows(BizException.class, () -> authService.updateUserRole(request));
+
+        assertEquals(Code.FORBIDDEN, ex.getCode());
+    }
+
+    @Test
+    // 目标用户不存在时返回明确业务错误，不执行写入和缓存失效。
+    public void updateUserRole_userMissing_throwsUserNotFound() {
+        UserRoleUpdateRequest request = roleUpdateRequest(8L, "admin");
+        when(authChecker.checkSuperAdmin()).thenReturn(1L);
+        when(userQueryService.selectById(8L)).thenReturn(null);
+
+        BizException ex = assertThrows(BizException.class, () -> authService.updateUserRole(request));
+
+        assertEquals(Code.USER_NOT_FOUND, ex.getCode());
+    }
+
+    @Test
+    // 角色非法时优先返回参数错误，不进入权限和数据库链路。
+    public void updateUserRole_invalidRole_throwsRoleInvalid() {
+        UserRoleUpdateRequest request = roleUpdateRequest(8L, "guest");
+
+        BizException ex = assertThrows(BizException.class, () -> authService.updateUserRole(request));
+
+        assertEquals(Code.ROLE_INVALID, ex.getCode());
     }
 
     @ParameterizedTest

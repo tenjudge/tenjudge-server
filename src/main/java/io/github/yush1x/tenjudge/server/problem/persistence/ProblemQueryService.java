@@ -51,4 +51,23 @@ public class ProblemQueryService {
                 .orderByAsc(Problem::getId);
         return problemMapper.selectPage(page, wrapper);
     }
+
+    public Page<Problem> selectAdminPage(long current, long size, String order) {
+        Page<Problem> page = new Page<>(current, size);
+        LambdaQueryWrapper<Problem> wrapper = new LambdaQueryWrapper<>();
+        wrapper.select(Problem::getId, Problem::getName, Problem::getVisibility)
+                .orderBy("asc".equals(order), true, Problem::getId)
+                .orderBy(!"asc".equals(order), false, Problem::getId);
+        return problemMapper.selectPage(page, wrapper);
+    }
+
+    public Page<Problem> selectAdminPageByAuthor(long current, long size, Long authorId, String order) {
+        Page<Problem> page = new Page<>(current, size);
+        LambdaQueryWrapper<Problem> wrapper = new LambdaQueryWrapper<>();
+        wrapper.select(Problem::getId, Problem::getName, Problem::getVisibility)
+                .eq(Problem::getAuthorId, authorId)
+                .orderBy("asc".equals(order), true, Problem::getId)
+                .orderBy(!"asc".equals(order), false, Problem::getId);
+        return problemMapper.selectPage(page, wrapper);
+    }
 }
