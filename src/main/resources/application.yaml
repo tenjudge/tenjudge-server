@@ -8,6 +8,26 @@ spring:
       max-file-size: 100MB
       max-request-size: 100MB
 
+  # PostgreSQL
+  datasource:
+    driver-class-name: org.postgresql.Driver
+
+  # Redis
+  data:
+    redis:
+      lettuce:
+        pool:
+          max-active: 16      # 最大连接数
+          max-idle: 8       # 最大空闲连接
+          min-idle: 0        # 最小空闲连接
+          max-wait: 1000ms    # 连接等待时间
+
+  # RabbitMQ
+  rabbitmq:
+    listener:
+      simple:
+        prefetch: 1
+
 # MyBatis
 mybatis-plus:
   configuration:
@@ -17,5 +37,23 @@ mybatis-plus:
 # Sa-Token
 sa-token:
   token-name: tenjudge-token # token 名称
-  timeout: 86400 # token 有效期（单位：秒） 默认30天，-1 代表永久有效 （同时作为 redis 中权限信息的过期时间）
-  active-timeout: -1 # token 最低活跃频率（单位：秒），如果 token 超过此时间没有访问系统就会被冻结，默认-1 代表不限制，永不冻结
+  timeout: 86400 # token 有效期（秒）
+
+# MinIO
+minio:
+  bucket-name: tenjudge
+
+
+# App
+app:
+  cache-ttl:
+    user-role: 3600s # 角色权限缓存 TTL
+    problem: 5h # 题目元数据缓存 TTL
+    problem-tags: 5h # 题目标签缓存 TTL
+    problem-list: 30s # 公开题目分页列表缓存 TTL
+    contest-problem: 5h # 比赛题目编排缓存 TTL
+    contest-detail: 30s # 比赛详情聚合缓存 TTL
+    contest-list: 30s # 比赛分页列表公共数据缓存 TTL
+    null-value: 30s # 空值缓存 TTL，用于防止缓存穿透
+    spring-cache-default: 1h # Spring Cache 默认 TTL
+    board: 24h # 榜单缓存 TTL

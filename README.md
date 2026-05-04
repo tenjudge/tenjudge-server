@@ -11,6 +11,18 @@ Java 21、Spring Boot 4、Maven、MyBatis-Plus、PostgreSQL、Redis、Redisson�
 - `contest`：比赛元数据、比赛题目编排、参赛关系与榜单相关数据。模块说明见 [Contest README](src/main/java/io/github/yush1x/tenjudge/server/contest/README.md)。
 - `submit`：提交权限检查、提交落库、代码上传、MQ 消息投递。模块说明见 [Submit README](src/main/java/io/github/yush1x/tenjudge/server/submit/README.md)。
 
+## Docker 镜像
+在项目根目录下执行以下命令构建镜像：
+
+```bash
+./mvnw clean package -DskipTests
+docker build -t tenjudge-server .
+```
+
+后续补充 Docker Compose 时，需要在 compose 中统一指定：
+- `SPRING_PROFILES_ACTIVE=prod`
+- yaml配置文件中的环境变量
+
 ## 中间件与外部服务
 
 ### PostgreSQL
@@ -48,13 +60,3 @@ Redis 缓存 TTL 的实现方式统一写在这里：TTL 配置集中在 `app.ca
 
 ### MinIO
 用于存储题目测试数据、判题文件和提交代码。
-
-
-## 错误处理
-- Controller 统一返回 `Result<T>`。
-- 返回空数据时使用 `Result.success()`。
-- 业务失败统一抛 `BizException`，并绑定 `Code`。
-- 非业务异常由全局异常处理器兜底，统一返回系统异常。
-
-## 跨域
-项目通过 `config/CorsConfig.java` 统一配置全局 CORS。当前开发期默认放开所有来源、常用 HTTP 方法和请求头，便于前端开发服务器联调；登录态通过请求头 `tenjudge-token` 传递，不依赖 Cookie。除非个别接口确实需要特殊策略，否则不要在 Controller 上单独添加 `@CrossOrigin`。

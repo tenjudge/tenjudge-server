@@ -1,0 +1,38 @@
+spring:
+
+  # PostgreSQL
+  datasource:
+    url: ${POSTGRES_URL}
+    username: ${POSTGRES_USERNAME}
+    password: ${POSTGRES_PASSWORD}
+
+  # Redis
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+      database: ${REDIS_DATABASE}
+      password: ${REDIS_PASSWORD}
+
+  # RabbitMQ
+  rabbitmq:
+    host: ${RABBITMQ_HOST}
+    port: ${RABBITMQ_PORT}
+    virtual-host: ${RABBITMQ_VIRTUAL_HOST}
+    username: ${RABBITMQ_USERNAME}
+    password: ${RABBITMQ_PASSWORD}
+
+# MinIO
+minio:
+  endpoint: ${MINIO_ENDPOINT}
+  access-key: ${MINIO_ACCESS_KEY}
+  secret-key: ${MINIO_SECRET_KEY}
+
+# App
+app:
+  auth:
+    super-admin-username: ${APP_SUPER_ADMIN_USERNAME}
+    super-admin-password: ${APP_SUPER_ADMIN_PASSWORD}
+    super-admin-email: ${APP_SUPER_ADMIN_EMAIL}
+  file-storage:
+    temp: ${APP_FILE_STORAGE_TEMP}

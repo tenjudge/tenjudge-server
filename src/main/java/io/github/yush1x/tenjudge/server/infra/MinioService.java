@@ -121,6 +121,7 @@ public class MinioService {
      * @throws Exception 当对象不存在或下载失败时抛出异常
      */
     public InputStream get(String objectName) throws Exception {
+        ensureBucketExists();
         return minioClient.getObject(
                 GetObjectArgs.builder()
                         .bucket(bucketName)
@@ -138,6 +139,7 @@ public class MinioService {
      * @throws Exception 当对象不存在读取失败时抛出异常
      */
     public String read(String objectName) throws Exception {
+        ensureBucketExists();
         try (InputStream inputStream = minioClient.getObject(
                 GetObjectArgs.builder()
                         .bucket(bucketName)
@@ -157,6 +159,7 @@ public class MinioService {
      * @throws Exception 当对象不存在或下载失败时抛出异常
      */
     public void download(String objectName, Path filePath) throws Exception {
+        ensureBucketExists();
         Path parent = filePath.getParent();
         if (parent != null) {
             Files.createDirectories(parent);
@@ -178,6 +181,7 @@ public class MinioService {
      * @throws Exception 桶不存在或对象删除失败时抛出异常
      */
     public void delete(String objectName) throws Exception {
+        ensureBucketExists();
         minioClient.removeObject(
                 RemoveObjectArgs.builder()
                         .bucket(bucketName)
@@ -192,6 +196,7 @@ public class MinioService {
      * @throws Exception 对象删除失败时抛出异常
      */
     public void deleteByPrefix(String prefix) throws Exception {
+        ensureBucketExists();
         String normalizedPrefix = prefix.startsWith("/") ? prefix.substring(1) : prefix;
         List<DeleteObject> objectsToDelete = new ArrayList<>();
 
@@ -234,6 +239,7 @@ public class MinioService {
      * @throws Exception 当生成预签名链接失败时抛出异常
      */
     public String getPresignedUrl(String objectName) throws Exception {
+        ensureBucketExists();
         return minioClient.getPresignedObjectUrl(
                 GetPresignedObjectUrlArgs.builder()
                         .method(Method.GET)
