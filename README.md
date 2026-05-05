@@ -19,6 +19,18 @@ Java 21、Spring Boot 4、Maven、MyBatis-Plus、PostgreSQL、Redis、Redisson�
 docker build -t tenjudge-server .
 ```
 
+GitHub Actions 会在 `CI and Docker Publish` workflow 的单元测试成功后按需发布镜像。只有推送到 `main` 分支且 commit message 包含 `[docker-publish]` 时，才会构建并推送多架构镜像：
+
+```text
+ccr.ccs.tencentyun.com/tenjudge/tenjudge-server:latest
+```
+
+发布 workflow 需要配置以下 GitHub Secrets：
+- `TENCENT_CCR_USERNAME`
+- `TENCENT_CCR_PASSWORD`
+
+发布镜像同时支持 `linux/amd64` 和 `linux/arm64`，并通过 GitHub Actions BuildKit cache 缓存 Docker 构建层。
+
 后续补充 Docker Compose 时，需要在 compose 中统一指定：
 - `SPRING_PROFILES_ACTIVE=prod`
 - yaml配置文件中的环境变量
