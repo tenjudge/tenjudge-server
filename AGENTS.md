@@ -193,6 +193,6 @@
 - 提交前至少保证 `./mvnw test` 通过；若环境依赖导致无法完整执行，应在总结中明确指出。
 - GitHub Actions workflow `CI and Docker Publish` 位于 `.github/workflows/ci.yml`，在 `main` 分支的 push 和 pull request 上执行 `./mvnw test`；当前测试 job 只跑单元测试，不启动 PostgreSQL、Redis、RabbitMQ、MinIO 等中间件。
 - Docker 镜像发布 job 同样位于 `.github/workflows/ci.yml`，通过 `needs: test` 等待单元测试成功后执行；只允许 `main` 分支 push 事件且 commit message 包含 `[docker-publish]` 时发布。
-- Docker 发布目标为 `ccr.ccs.tencentyun.com/tenjudge/tenjudge-server:latest`，构建平台为 `linux/amd64` 和 `linux/arm64`；发布凭据必须使用 GitHub Secrets `TENCENT_CCR_USERNAME` 与 `TENCENT_CCR_PASSWORD`，不要写入仓库。
+- Docker 发布目标为 `ghcr.io/tenjudge/tenjudge-server:latest`，构建平台为 `linux/amd64` 和 `linux/arm64`；发布凭据使用 GitHub Actions 自动注入的 `GITHUB_TOKEN`，不要在仓库中写入额外镜像仓库账号密码。
 - Docker 发布 workflow 需要保留 Maven 依赖缓存和 BuildKit `type=gha` 构建层缓存，避免普通发布重复拉取和构建依赖层。
 - 不要在文档中记录本地明文密码、token、MinIO 密钥或其他敏感配置。示例配置应使用占位值。

@@ -22,12 +22,10 @@ docker build -t tenjudge-server .
 GitHub Actions 会在 `CI and Docker Publish` workflow 的单元测试成功后按需发布镜像。只有推送到 `main` 分支且 commit message 包含 `[docker-publish]` 时，才会构建并推送多架构镜像：
 
 ```text
-ccr.ccs.tencentyun.com/tenjudge/tenjudge-server:latest
+ghcr.io/tenjudge/tenjudge-server:latest
 ```
 
-发布 workflow 需要配置以下 GitHub Secrets：
-- `TENCENT_CCR_USERNAME`
-- `TENCENT_CCR_PASSWORD`
+发布 workflow 使用 GitHub Actions 自动注入的 `GITHUB_TOKEN` 推送 GHCR，不需要额外配置镜像仓库账号密码。首次成功推送后，可在 GitHub Packages 中将镜像可见性设置为 public。
 
 发布镜像同时支持 `linux/amd64` 和 `linux/arm64`，并通过 GitHub Actions BuildKit cache 缓存 Docker 构建层。
 
