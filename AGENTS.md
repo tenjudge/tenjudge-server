@@ -191,4 +191,5 @@
 - 修改权限、异常、返回格式时，优先运行相关单元测试；若没有覆盖，应至少补充对应测试或说明验证缺口。
 - 新增或修改单元测试时统一使用 Mockito；优先 mock 直接依赖，不 mock MyBatis/Redis/Sa-Token 等底层库。
 - 提交前至少保证 `./mvnw test` 通过；若环境依赖导致无法完整执行，应在总结中明确指出。
+- GitHub Actions CI 位于 `.github/workflows/ci.yml`，在 `main` 分支的 push 和 pull request 上执行 `./mvnw test`；当前 CI 只跑单元测试，不启动 PostgreSQL、Redis、RabbitMQ、MinIO 等中间件。
 - 不要在文档中记录本地明文密码、token、MinIO 密钥或其他敏感配置。示例配置应使用占位值。
