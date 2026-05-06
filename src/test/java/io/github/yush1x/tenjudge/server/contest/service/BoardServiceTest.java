@@ -292,6 +292,24 @@ class BoardServiceTest {
     }
 
     @Test
+    void queryBoardPage_cacheHit_acceptsIntegerUserIdFromRedis() {
+        ContestParticipant alice = participant(2L, "alice", 2, 30, 20);
+        ContestProblemDTO problem = contestProblem(1001L, "A");
+        when(contestCacheService.getContestDetail(10L)).thenReturn(contestDetail(10L, LocalDateTime.now().minusHours(1), LocalDateTime.now().plusHours(1), List.of(problem)));
+        when(redisTemplate.hasKey("contest:10:exist")).thenReturn(true);
+        when(zSetOperations.range("contest:10:rank", 0, 0)).thenReturn(new LinkedHashSet<>(List.of(2)));
+        when(zSetOperations.size("contest:10:rank")).thenReturn(1L);
+        when(valueOperations.get("contest:10:participant:2:detail")).thenReturn(alice);
+
+        BoardPageVO result = boardService.queryBoardPage(10L, 1L, 1L);
+
+        assertEquals(1L, result.getTotal());
+        assertEquals(2L, result.getRecords().getFirst().getUserId());
+        assertEquals("alice", result.getRecords().getFirst().getUsername());
+        assertEquals(List.of(problem), result.getProblems());
+    }
+
+    @Test
     void queryBoardPage_cacheMiss_readsDatabasePage() {
         ContestParticipant alice = participant(2L, "alice", 2, 30, 20);
         ContestProblemDTO problem = contestProblem(1001L, "A");

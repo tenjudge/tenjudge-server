@@ -158,7 +158,10 @@ public class BoardService {
             // 获取详细比赛表现信息
             long currentRank = start;
             for (Object obj : set) {
-                Long userId = (Long) obj;
+                if (!(obj instanceof Number number)) {
+                    throw new RuntimeException("从缓存中读取用户榜单排名时发生异常，用户ID类型不合法");
+                }
+                Long userId = number.longValue(); // Redis JSON 反序列化小数字时可能返回 Integer，这里按数字语义统一转 Long。
                 ContestParticipant contestParticipant = (ContestParticipant) redisTemplate.opsForValue().get("contest:" + contestId + ":participant:" + userId + ":detail");
                 if (contestParticipant == null) {
                     throw new RuntimeException("从缓存中读取用户榜单详情时发生异常，未找到对应的用户详情");
