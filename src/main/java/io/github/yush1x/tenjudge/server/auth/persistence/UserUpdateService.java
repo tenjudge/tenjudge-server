@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+
 @Service
 @RequiredArgsConstructor
 public class UserUpdateService {
@@ -22,6 +24,7 @@ public class UserUpdateService {
         user.setPassword(registerRequest.getPassword());
         user.setEmail(registerRequest.getEmail());
         user.setRole(registerRequest.getRole());
+        user.setCreatedAt(LocalDateTime.now()); // 用户创建时间由业务写入，数据库默认值仅作为非应用写入的兜底。
         userMapper.insert(user);
         return user.getId();
     }

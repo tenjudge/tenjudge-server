@@ -72,6 +72,7 @@ public class SubmitService {
                 // Agent 提交也记录触发提交的登录用户，后续提交详情可统一按 submitterId 校验归属。
                 .submitterId(authService.getLoginId())
                 .isAgent(Boolean.TRUE.equals(judgeRequest.getIsAgent()))
+                .submitTime(LocalDateTime.now()) // 提交时间与比赛权限判断都使用 JVM 当前时间，避免与数据库时钟混用。
                 .contestId(judgeRequest.getContestId())
                 .language(judgeRequest.getLanguage())
                 .status("PENDING")

@@ -67,6 +67,7 @@
 - 涉及数据库、对象存储、消息队列、分布式锁的逻辑时，优先在 `service` 层完成业务编排，不要把这类逻辑下沉到 `controller`。
 - 跨模块复用的基础设施能力统一优先放在 `infra` 包，例如 MinIO、Redis 等公共封装；模块内 `storage` 包只保留仍带有明确业务边界的本地文件处理或存储辅助逻辑。
 - `persistence` 层的写入职责默认按表拆分。单个 `*UpdateService` 应只负责一张主表或一类明确边界的关系表写入；若同时操作多张表，应拆成独立类，由 `service` 层负责统一编排，不要把多表写入逻辑长期混在同一个 persistence 服务里。
+- 应用写入的创建/提交时间由业务链路显式调用 `LocalDateTime.now()` 生成，不再使用 MyBatis-Plus `MetaObjectHandler` 做全局时间填充；`users.created_at` 在 `UserUpdateService.insert()` 写入，`submission.submit_time` 在 `SubmitService.judge()` 写入，数据库 `DEFAULT CURRENT_TIMESTAMP` 仅作为非应用写入兜底。
 - 修改 `problem` 和 `submit` 模块时，不能只看数据库，还要同时检查 MinIO、Redis 锁、RabbitMQ 发送链路是否保持一致性。
 
 ### 1.5 Redis 缓存封装规范
