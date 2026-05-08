@@ -14,4 +14,7 @@ public class ProblemResultDTO {
 
     @Schema(description = "通过前的错误提交次数", example = "2")
     private int wrongAttemptsBeforeAc;
+
+    @Schema(description = "封榜后的有效提交次数，提交时间大于等于 freezeTime 且状态不是 PENDING 或 SYSTEM_ERROR 时计入", example = "3")
+    private int attemptsAfterFreeze;
 }

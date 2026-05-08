@@ -83,7 +83,7 @@ username 用户名快照
 solved_count 过题数
 penalty 罚时
 last_accepted_time 最后一次首次通过题目的比赛分钟数，用于 ICPC 榜单同题数同罚时排序，默认 0
-problem_results 榜单题目结果快照，jsonb 类型，使用 problemId 作为 key，value 包含 accepted、acceptedAt、wrongAttemptsBeforeAc；acceptedAt 为首次通过时距离比赛开始的分钟数
+problem_results 榜单题目结果快照，jsonb 类型，使用 problemId 作为 key，value 包含 accepted、acceptedAt、wrongAttemptsBeforeAc、attemptsAfterFreeze；acceptedAt 为首次通过时距离比赛开始的分钟数，attemptsAfterFreeze 为封榜后的有效提交次数
 ```
 
 ## Redis
@@ -115,7 +115,7 @@ contest_page:current:{current}:size:{size} 比赛分页列表公共数据缓存�
 
 比赛开始前先进行**缓存预热**：ZSET中插入所有用户，String中也先缓存用户的初始空白数据。由于用户无提交时也应该计入榜单并参与排名，故使用缓存预热不仅可以解决缓存击穿，首次访问慢等问题，也可以保证榜单的完整与准确性。
 
-缓存预热时所有数据全部统一设置 TTL 24 小时。由于ZSET修改数据不会改变TTL，故ZSET过期则说明从现在开始需要从数据库读取数据。但String 每次刷新会重置 TTL ，故String刷新时TTL仍需设为和ZSET相同时间，保证起一定比ZSET晚过期。
+缓存预热时所有数据全部统一设置 TTL 24 小时。由于ZSET修改数据不会改变TTL，故ZSET过期则说明从现在开始需要从数据库读取数据。但String 每次刷新会重置 TTL ，故String刷新时TTL仍需设为和ZSET相同时间，保证其一定比ZSET晚过期。
 
 通过定时任务实现（间隔3min），每次从数据库中查看未来 5 分钟内会开始的比赛，并将其预热。筛选未来比赛依赖 `contest.start_time`，需保留对应数据库索引优化。
 
@@ -123,7 +123,7 @@ contest_page:current:{current}:size:{size} 比赛分页列表公共数据缓存�
 
 #### 数据更新
 
-后续处理提交并更新榜单时，会先通过 `lock:contest:{contestId}:user:{userId}:board` 串行化同一用户同一场比赛的榜单更新，再按提交时间和提交 ID 正序读取该用户本场非 Agent 提交并重算 `contest_participant` 整行快照。这样可以避免评测完成消息乱序、重复投递或并发消费导致 AC 前错误次数、罚时和过题数计算不一致。数据库快照更新成功后，再根据当前行数据修改ZSET中某一用户的分数和String中的详细信息。
+后续处理提交并更新榜单时，会先通过 `lock:contest:{contestId}:user:{userId}:board` 串行化同一用户同一场比赛的榜单更新，再按提交时间和提交 ID 正序读取该用户本场非 Agent 提交并重算 `contest_participant` 整行快照。这样可以避免评测完成消息乱序、重复投递或并发消费导致 AC 前错误次数、罚时和过题数计算不一致。封榜判断只关心提交发生时间，`submitTime >= freezeTime` 算封榜后提交；封榜后的非 `PENDING`、非 `SYSTEM_ERROR` 提交只增加 `attemptsAfterFreeze`，不影响可见榜单排名字段。数据库快照更新成功后，再根据当前行数据修改ZSET中某一用户的分数和String中的详细信息。
 
 排名时以过题数为第一关键字，罚时为第二关键字，最后一次有效AC提交时间为第三关键字，故ZSET缓存中，分数的计算逻辑如下：
 

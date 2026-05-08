@@ -96,6 +96,7 @@ public class SubmitController {
     @Operation(
         summary = "查询用户在比赛中的全部提交",
         description = "公开查询指定用户在指定比赛中的全部非 Agent 提交，不返回源码和测试点详情。"
+            + " 比赛封榜中，非提交者本人且非管理员只能看到封榜前提交。"
             + " problemName 已按比赛题号拼接为 A. name，前端可直接展示；题目不存在时为 null。",
         operationId = "queryUserContestSubmissions"
     )
@@ -111,7 +112,7 @@ public class SubmitController {
     @GetMapping("/user/{userId}")
     @Operation(
         summary = "分页查询用户全部提交",
-        description = "公开分页查询指定用户的全部非 Agent 提交，包含比赛提交和非比赛提交，不返回源码和测试点详情。"
+        description = "提交者本人或管理员分页查询指定用户的全部非 Agent 提交，包含比赛提交和非比赛提交，不返回源码和测试点详情。"
             + " problemName 已按题目 ID 拼接为 #123. name，前端可直接展示；题目不存在时为 null。",
         operationId = "queryUserSubmissions"
     )

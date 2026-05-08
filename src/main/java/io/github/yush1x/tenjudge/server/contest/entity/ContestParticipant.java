@@ -40,6 +40,12 @@ public class ContestParticipant {
         problemResult.setWrongAttemptsBeforeAc(problemResult.getWrongAttemptsBeforeAc() + 1);
     }
 
+    // 记录封榜后的有效提交次数；封榜后的提交只用于后续解封展示，不影响可见榜单排名字段。
+    public void markFrozenAttempt(Long problemId) {
+        ProblemResultDTO problemResult = getOrCreateProblemResult(problemId);
+        problemResult.setAttemptsAfterFreeze(problemResult.getAttemptsAfterFreeze() + 1);
+    }
+
     // 记录一道题通过，并同步维护 ICPC 榜单聚合字段；重复 AC 不再计入题数、罚时和最后 AC 时间。
     public void markAccepted(Long problemId, int acceptedAt, int penaltyPerWrong) {
         ProblemResultDTO problemResult = getOrCreateProblemResult(problemId);

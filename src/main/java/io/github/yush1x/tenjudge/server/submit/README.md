@@ -10,9 +10,9 @@
 
 提交详情通过 `GET /submit/{submissionId}` 查询，允许提交者本人或管理员查看。详情会返回题目 ID、题目名称、提交时间、语言、整体状态、最大运行时间、最大内存、整体测评信息、提交源码和测试点明细；若提交仍在排队或测评中，测试点明细为空列表，整体耗时、内存和信息字段可为空。
 
-提交列表支持公开查询，不要求登录，且只返回非 Agent 提交：
-- `GET /submit/contest/{contestId}/user/{userId}`：查询某用户在某比赛中的全部提交，不分页。
-- `GET /submit/user/{userId}?current=1&size=30`：分页查询某用户全部提交，包含比赛提交和非比赛提交。
+提交列表只返回非 Agent 提交：
+- `GET /submit/contest/{contestId}/user/{userId}`：公开查询某用户在某比赛中的提交，不分页；比赛封榜中，非提交者本人且非管理员只能看到封榜前提交。
+- `GET /submit/user/{userId}?current=1&size=30`：提交者本人或管理员分页查询某用户全部提交，包含比赛提交和非比赛提交。
 
 列表项只返回 `submissionId`、`problemName`、`language`、`status`、`time`、`memory`、`submitTime`，不会返回源码或测试点明细。`problemName` 由服务端拼接完成：比赛内列表格式为 `A. name`，用户全部提交列表格式为 `#123. name`；若题目元数据不存在，则返回 `null`。
 
@@ -112,7 +112,8 @@ contest_id 只有在比赛时间中且是参赛队员才会被记录，一旦记
 
 ### 提交列表查询
 
-- `GET /submit/contest/{contestId}/user/{userId}` 和 `GET /submit/user/{userId}` 均为公开接口，不校验登录态。
+- `GET /submit/contest/{contestId}/user/{userId}` 为公开接口，不强制登录；比赛封榜中，游客和非提交者本人普通用户只能看到 `submitTime < freezeTime` 的提交，提交者本人和管理员可查看全部提交。
+- `GET /submit/user/{userId}` 必须登录，且只允许提交者本人、管理员或超级管理员查看。
 - 列表查询只包含 `is_agent = false` 的提交，避免 Agent 提交混入普通用户提交历史。
 - 列表查询不读取 MinIO 源码，不查询 `submission_detail`，只使用 `submission`、`problem` 和比赛内题目编排信息组装摘要。
 - 比赛内列表按 `contest_problem.problem_index` 拼接题目展示名；用户全部提交列表按 `problem_id` 拼接题目展示名。

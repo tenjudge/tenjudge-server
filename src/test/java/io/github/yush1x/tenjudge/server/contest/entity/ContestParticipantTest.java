@@ -20,6 +20,7 @@ class ContestParticipantTest {
         assertFalse(problemResult.isAccepted());
         assertEquals(0, problemResult.getAcceptedAt());
         assertEquals(0, problemResult.getWrongAttemptsBeforeAc());
+        assertEquals(0, problemResult.getAttemptsAfterFreeze());
         assertTrue(contestParticipant.getProblemResults().containsKey(1001L));
     }
 
@@ -34,6 +35,21 @@ class ContestParticipantTest {
         ProblemResultDTO problemResult = contestParticipant.getProblemResults().get(1001L);
         assertEquals(2, problemResult.getWrongAttemptsBeforeAc());
         assertTrue(problemResult.isAccepted());
+    }
+
+    @Test
+    void markFrozenAttempt_shouldOnlyUpdateAttemptsAfterFreeze() {
+        ContestParticipant contestParticipant = new ContestParticipant();
+        contestParticipant.markFrozenAttempt(1001L);
+        contestParticipant.markFrozenAttempt(1001L);
+
+        ProblemResultDTO problemResult = contestParticipant.getProblemResults().get(1001L);
+        assertEquals(2, problemResult.getAttemptsAfterFreeze());
+        assertFalse(problemResult.isAccepted());
+        assertEquals(0, problemResult.getWrongAttemptsBeforeAc());
+        assertEquals(0, contestParticipant.getSolvedCount());
+        assertEquals(0, contestParticipant.getPenalty());
+        assertEquals(0, contestParticipant.getLastAcceptedTime());
     }
 
     @Test

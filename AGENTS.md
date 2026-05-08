@@ -174,8 +174,9 @@
 - 榜单预热只筛选未来 5 分钟内开始且尚未存在 `contest:{contestId}:rank` / `contest:{contestId}:exist` 的比赛；预热写入必须通过 `lock:contest:{contestId}:board-preload` 做比赛维度互斥。
 - 不要为了极短的字符串拼接、单行转发或没有复用价值的逻辑新开 private 方法；这类代码优先保持内联，除非能明显降低复杂度或表达业务约束。
 - 比赛题目编排依赖题目真实存在性校验，不能只依赖数据库约束兜底；同一场比赛内 `problemId` 和 `problemIndex` 都必须唯一。
-- `contest_participant.problem_results` 使用 `problemId` 作为 `jsonb` key，Java 值对象为 `contest/dto/ProblemResultDTO`；`acceptedAt` 存首次通过时距离比赛开始的分钟数，不存时间戳。
-- `ContestParticipant.markRejected()` / `markAccepted()` 是榜单题目结果和聚合字段的统一更新入口；修改榜单聚合逻辑时，需同时保证 Java 强类型结构与 PostgreSQL 存储结构一致。
+- `contest_participant.problem_results` 使用 `problemId` 作为 `jsonb` key，Java 值对象为 `contest/dto/ProblemResultDTO`；`acceptedAt` 存首次通过时距离比赛开始的分钟数，不存时间戳；`attemptsAfterFreeze` 存封榜后的有效提交次数。
+- `ContestParticipant.markRejected()` / `markAccepted()` / `markFrozenAttempt()` 是榜单题目结果和聚合字段的统一更新入口；修改榜单聚合逻辑时，需同时保证 Java 强类型结构与 PostgreSQL 存储结构一致。
+- 封榜判断只看提交发生时间，`submitTime >= freezeTime` 算封榜后提交；封榜后的非 `PENDING`、非 `SYSTEM_ERROR` 提交只增加 `attemptsAfterFreeze`，不影响 `solvedCount`、`penalty`、`lastAcceptedTime`、`acceptedAt` 和 `wrongAttemptsBeforeAc`。
 
 ### 3.4 Submit
 
@@ -183,7 +184,8 @@
 - Agent 提交与用户提交在鉴权上复用后端逻辑；`submitter_id` 统一记录触发提交的登录用户，`is_agent` 用于区分提交来源，正式成绩或榜单统计需要明确是否过滤 Agent 提交。
 - 比赛中题目的 Agent 提交限制属于安全边界，修改相关逻辑时必须重点复核。
 - 提交详情接口 `GET /submit/{submissionId}` 允许提交者本人、管理员和超级管理员查看；源码从 MinIO `submission/{submissionId}/code` 读取，测试点明细按 `test_case_id` 升序返回，题目不存在时 `problemName` 返回空。
-- 提交列表接口 `GET /submit/contest/{contestId}/user/{userId}` 与 `GET /submit/user/{userId}` 公开可查，不做登录鉴权；列表只能返回非 Agent 提交，且不得返回源码或测试点明细。
+- 比赛提交列表接口 `GET /submit/contest/{contestId}/user/{userId}` 公开可查，但比赛封榜中，非提交者本人且非管理员只能看到 `submitTime < freezeTime` 的提交；列表只能返回非 Agent 提交，且不得返回源码或测试点明细。
+- 用户全部提交列表接口 `GET /submit/user/{userId}` 只能由提交者本人、管理员或超级管理员查看；列表只能返回非 Agent 提交，且不得返回源码或测试点明细。
 - 提交列表中的 `problemName` 由服务端拼接展示名：比赛内格式为 `A. name`，用户全部提交列表格式为 `#123. name`；题目元数据不存在时返回 `null`。
 
 ## 4. 修改与验证要求
@@ -191,6 +193,7 @@
 - 修改请求或响应结构时，同时检查 Controller、Service、测试代码和模块 README 是否需要同步更新。
 - 修改权限、异常、返回格式时，优先运行相关单元测试；若没有覆盖，应至少补充对应测试或说明验证缺口。
 - 新增或修改单元测试时统一使用 Mockito；优先 mock 直接依赖，不 mock MyBatis/Redis/Sa-Token 等底层库。
+- 测试环境通过 `src/test/resources/mockito-extensions/org.mockito.plugins.MockMaker` 固定使用 Mockito subclass mock maker，避免 inline mock maker 在受限沙箱中因 Byte Buddy agent attach 失败导致单元测试无法运行。
 - 提交前至少保证 `./mvnw test` 通过；若环境依赖导致无法完整执行，应在总结中明确指出。
 - GitHub Actions workflow `CI and Docker Publish` 位于 `.github/workflows/ci.yml`，在 `main` 分支的 push 和 pull request 上执行 `./mvnw test`；当前测试 job 只跑单元测试，不启动 PostgreSQL、Redis、RabbitMQ、MinIO 等中间件。
 - Docker 镜像发布 job 同样位于 `.github/workflows/ci.yml`，通过 `needs: test` 等待单元测试成功后执行；只允许 `main` 分支 push 事件且 commit message 包含 `[docker-publish]` 时发布。

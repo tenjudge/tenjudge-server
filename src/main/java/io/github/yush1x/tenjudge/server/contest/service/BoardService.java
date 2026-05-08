@@ -94,6 +94,11 @@ public class BoardService {
                         || "SYSTEM_ERROR".equals(boardSubmission.getStatus())) {
                     continue;
                 }
+                // 封榜按提交发生时间判断；封榜后的有效提交只记录隐藏尝试次数，不影响当前可见排名。
+                if (contest.getFreezeTime() != null && !boardSubmission.getSubmitTime().isBefore(contest.getFreezeTime())) {
+                    contestParticipant.markFrozenAttempt(boardSubmission.getProblemId());
+                    continue;
+                }
                 int acceptedAt = (int) Duration.between(contest.getStartTime(), boardSubmission.getSubmitTime()).toMinutes();
                 if ("ACCEPTED".equals(boardSubmission.getStatus())) {
                     contestParticipant.markAccepted(boardSubmission.getProblemId(), acceptedAt, contest.getPenaltyPerWrong());
@@ -105,12 +110,7 @@ public class BoardService {
 
             // 数据库快照更新成功后再刷新缓存，保证 Redis 榜单和持久化榜单使用同一份计算结果。
             if (redisTemplate.hasKey("contest:" + contestId + ":exist")) {
-                int solvedCount = contestParticipant.getSolvedCount();
-                int penalty = contestParticipant.getPenalty();
-                int lastAcceptedTime = contestParticipant.getLastAcceptedTime();
-                long score = -solvedCount * 1_000_000_000_000L + penalty * 1_000_000L + lastAcceptedTime;
-                redisTemplate.opsForZSet().add("contest:" + contestId + ":rank", submitterId, score);
-                redisTemplate.opsForValue().set("contest:" + contestId + ":participant:" + submitterId + ":detail", contestParticipant, cacheTtl);
+                loadUserCache(contestId, contestParticipant);
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -257,7 +257,7 @@ public class BoardService {
             throw new RuntimeException(e);
         }
         // TODO 这里最好改为使用lua保证原子性，同时里面检查是否ZSET中已经有这个用户了，避免二次重复操作覆盖原有数据（可能已preload过了，然后瞬间提交了一发，但是此时不能覆盖这个提交）
-        // 防止刚访问时，exist还存在但是到了真正执行的时候就过期了，然后这个操作给他强行续期，导致缓存延长24小时。
+        // 防止刚访问时，exist还存在但是到了真正执行的时候就过期了，然后这个操作给他强行续期，导致缓存延长24小时或用不过期。
         if (Boolean.TRUE.equals(redisTemplate.hasKey("contest:" + contestId + ":exist"))) {
             boolean exists = redisTemplate.opsForZSet().score("contest:" + contestId + ":rank", participant.getUserId()) != null;
             if (!exists) loadUserCache(contestId, participant);

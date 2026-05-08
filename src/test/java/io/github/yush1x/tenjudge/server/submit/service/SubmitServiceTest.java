@@ -321,6 +321,137 @@ class SubmitServiceTest {
     }
 
     @Test
+    void queryUserContestSubmissions_guestDuringFreeze_hidesFrozenSubmissions() {
+        LocalDateTime startTime = LocalDateTime.of(2026, 5, 3, 10, 0);
+        LocalDateTime freezeTime = startTime.plusMinutes(30);
+        Submission beforeFreeze = Submission.builder()
+                .id(3001L)
+                .problemId(1001L)
+                .submitTime(freezeTime.minusMinutes(1))
+                .language("cpp")
+                .status("WRONG_ANSWER")
+                .build();
+        Submission atFreeze = Submission.builder()
+                .id(3002L)
+                .problemId(1001L)
+                .submitTime(freezeTime)
+                .language("cpp")
+                .status("ACCEPTED")
+                .build();
+        Submission afterFreeze = Submission.builder()
+                .id(3003L)
+                .problemId(1001L)
+                .submitTime(freezeTime.plusMinutes(1))
+                .language("cpp")
+                .status("ACCEPTED")
+                .build();
+        Contest contest = Contest.builder()
+                .id(2001L)
+                .freezeTime(freezeTime)
+                .endTime(LocalDateTime.now().plusHours(1))
+                .build();
+        Problem problem = new Problem();
+        problem.setId(1001L);
+        problem.setName("A + B Problem");
+        ContestProblem contestProblem = ContestProblem.builder()
+                .contestId(2001L)
+                .problemId(1001L)
+                .problemIndex("A")
+                .build();
+
+        when(authService.isLogin()).thenReturn(false);
+        when(submissionQueryService.selectByContestIdAndSubmitterId(2001L, 1L))
+                .thenReturn(List.of(beforeFreeze, atFreeze, afterFreeze));
+        when(contestQueryService.select(2001L)).thenReturn(contest);
+        when(problemQueryService.selectNamesByIds(Set.of(1001L))).thenReturn(List.of(problem));
+        when(contestProblemQueryService.selectByContestId(2001L)).thenReturn(List.of(contestProblem));
+
+        List<SubmissionListItemVO> result = submitService.queryUserContestSubmissions(2001L, 1L);
+
+        assertEquals(1, result.size());
+        assertEquals(3001L, result.get(0).getSubmissionId());
+    }
+
+    @Test
+    void queryUserContestSubmissions_ownerDuringFreeze_returnsAllSubmissions() {
+        LocalDateTime freezeTime = LocalDateTime.of(2026, 5, 3, 10, 30);
+        Submission beforeFreeze = Submission.builder()
+                .id(3001L)
+                .problemId(1001L)
+                .submitTime(freezeTime.minusMinutes(1))
+                .build();
+        Submission atFreeze = Submission.builder()
+                .id(3002L)
+                .problemId(1001L)
+                .submitTime(freezeTime)
+                .build();
+
+        when(authService.isLogin()).thenReturn(true);
+        when(authService.getLoginId()).thenReturn(1L);
+        when(submissionQueryService.selectByContestIdAndSubmitterId(2001L, 1L)).thenReturn(List.of(beforeFreeze, atFreeze));
+        when(problemQueryService.selectNamesByIds(Set.of(1001L))).thenReturn(List.of());
+        when(contestProblemQueryService.selectByContestId(2001L)).thenReturn(List.of());
+
+        List<SubmissionListItemVO> result = submitService.queryUserContestSubmissions(2001L, 1L);
+
+        assertEquals(2, result.size());
+        verify(contestQueryService, never()).select(2001L);
+    }
+
+    @Test
+    void queryUserContestSubmissions_adminDuringFreeze_returnsAllSubmissions() {
+        LocalDateTime freezeTime = LocalDateTime.of(2026, 5, 3, 10, 30);
+        Submission beforeFreeze = Submission.builder()
+                .id(3001L)
+                .problemId(1001L)
+                .submitTime(freezeTime.minusMinutes(1))
+                .build();
+        Submission atFreeze = Submission.builder()
+                .id(3002L)
+                .problemId(1001L)
+                .submitTime(freezeTime)
+                .build();
+
+        when(authService.isLogin()).thenReturn(true);
+        when(authService.getLoginId()).thenReturn(99L);
+        when(authService.getRole(99L)).thenReturn("admin");
+        when(submissionQueryService.selectByContestIdAndSubmitterId(2001L, 1L)).thenReturn(List.of(beforeFreeze, atFreeze));
+        when(problemQueryService.selectNamesByIds(Set.of(1001L))).thenReturn(List.of());
+        when(contestProblemQueryService.selectByContestId(2001L)).thenReturn(List.of());
+
+        List<SubmissionListItemVO> result = submitService.queryUserContestSubmissions(2001L, 1L);
+
+        assertEquals(2, result.size());
+        verify(contestQueryService, never()).select(2001L);
+    }
+
+    @Test
+    void queryUserContestSubmissions_afterContestEnd_returnsFrozenSubmissions() {
+        LocalDateTime freezeTime = LocalDateTime.of(2026, 5, 3, 10, 30);
+        Submission atFreeze = Submission.builder()
+                .id(3002L)
+                .problemId(1001L)
+                .submitTime(freezeTime)
+                .build();
+        Contest contest = Contest.builder()
+                .id(2001L)
+                .freezeTime(freezeTime)
+                .endTime(LocalDateTime.now().minusHours(1))
+                .build();
+
+        when(authService.isLogin()).thenReturn(false);
+        when(submissionQueryService.selectByContestIdAndSubmitterId(2001L, 1L)).thenReturn(List.of(atFreeze));
+        when(contestQueryService.select(2001L)).thenReturn(contest);
+        when(problemQueryService.selectNamesByIds(Set.of(1001L))).thenReturn(List.of());
+        when(contestProblemQueryService.selectByContestId(2001L)).thenReturn(List.of());
+
+        List<SubmissionListItemVO> result = submitService.queryUserContestSubmissions(2001L, 1L);
+
+        assertEquals(1, result.size());
+        assertEquals(3002L, result.get(0).getSubmissionId());
+    }
+
+    @Test
     void queryUserSubmissions_returnsPagedProblemDisplayName() {
         LocalDateTime submitTime = LocalDateTime.now();
         Submission submission = Submission.builder()
@@ -338,6 +469,7 @@ class SubmitServiceTest {
         Page<Submission> page = new Page<>(1, 30, 1);
         page.setRecords(List.of(submission));
 
+        when(authService.checkLogin()).thenReturn(1L);
         when(submissionQueryService.selectPageBySubmitterId(1L, 1L, 30L)).thenReturn(page);
         when(problemQueryService.selectNamesByIds(Set.of(1001L))).thenReturn(List.of(problem));
 
@@ -354,6 +486,32 @@ class SubmitServiceTest {
         assertEquals(1, result.getCurrent());
         assertEquals(30, result.getSize());
         assertEquals(1, result.getPages());
+    }
+
+    @Test
+    void queryUserSubmissions_adminCanViewOtherUserSubmissions() {
+        Page<Submission> page = new Page<>(1, 30, 0);
+        page.setRecords(List.of());
+
+        when(authService.checkLogin()).thenReturn(99L);
+        when(authService.getRole(99L)).thenReturn("super_admin");
+        when(submissionQueryService.selectPageBySubmitterId(1L, 1L, 30L)).thenReturn(page);
+
+        SubmissionPageVO result = submitService.queryUserSubmissions(1L, 1L, 30L);
+
+        assertEquals(0, result.getRecords().size());
+        assertEquals(0, result.getTotal());
+    }
+
+    @Test
+    void queryUserSubmissions_otherUserNonAdmin_throwsBizException() {
+        when(authService.checkLogin()).thenReturn(2L);
+        when(authService.getRole(2L)).thenReturn("user");
+
+        BizException ex = assertThrows(BizException.class, () -> submitService.queryUserSubmissions(1L, 1L, 30L));
+
+        assertEquals(Code.FORBIDDEN, ex.getCode());
+        verify(submissionQueryService, never()).selectPageBySubmitterId(1L, 1L, 30L);
     }
 
     @Test

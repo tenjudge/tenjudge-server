@@ -148,8 +148,21 @@ public class SubmitService {
     public List<SubmissionListItemVO> queryUserContestSubmissions(Long contestId, Long userId) {
         submitRequestChecker.checkUserContestSubmissionListRequest(contestId, userId);
 
-        // 公开列表不做鉴权，安全边界依赖查询层只取非 Agent 摘要字段。
+        // 比赛提交列表仍允许公开访问，但封榜中会按访问者身份隐藏封榜后提交。
         List<Submission> submissions = submissionQueryService.selectByContestIdAndSubmitterId(contestId, userId);
+        if (!canViewAllSubmissions(userId)) {
+            Contest contest = contestQueryService.select(contestId);
+            LocalDateTime now = LocalDateTime.now();
+            if (contest != null && contest.getFreezeTime() != null
+                    && !now.isBefore(contest.getFreezeTime())
+                    && contest.getEndTime() != null && now.isBefore(contest.getEndTime())) {
+                // 封榜中只隐藏封榜后发生的提交；封榜边界按提交时间计算，submitTime == freezeTime 也隐藏。
+                submissions = submissions.stream()
+                        .filter(submission -> submission.getSubmitTime() == null
+                                || submission.getSubmitTime().isBefore(contest.getFreezeTime()))
+                        .toList();
+            }
+        }
         Map<Long, String> problemNames = getProblemNames(submissions);
 
         // 比赛展示名以当前题目编排为准；编排缺失时不猜测历史题号。
@@ -170,8 +183,12 @@ public class SubmitService {
 
     public SubmissionPageVO queryUserSubmissions(Long userId, Long current, Long size) {
         submitRequestChecker.checkUserSubmissionPageRequest(userId, current, size);
+        Long loginId = authService.checkLogin();
+        if (!loginId.equals(userId) && !isAdmin(loginId)) {
+            throw new BizException(Code.FORBIDDEN);
+        }
 
-        // 用户历史不按 contestId 分支；过滤 Agent 的口径固定在查询层。
+        // 用户全部提交只允许本人或管理员查看；过滤 Agent 的口径固定在查询层。
         Page<Submission> page = submissionQueryService.selectPageBySubmitterId(userId, current, size);
         Map<Long, String> problemNames = getProblemNames(page.getRecords());
 
@@ -189,6 +206,19 @@ public class SubmitService {
                 .size(page.getSize())
                 .pages(page.getPages())
                 .build();
+    }
+
+    private boolean canViewAllSubmissions(Long targetUserId) {
+        if (!authService.isLogin()) {
+            return false;
+        }
+        Long loginId = authService.getLoginId();
+        return loginId.equals(targetUserId) || isAdmin(loginId);
+    }
+
+    private boolean isAdmin(Long userId) {
+        String role = authService.getRole(userId);
+        return "admin".equals(role) || "super_admin".equals(role);
     }
 
     private Map<Long, String> getProblemNames(List<Submission> submissions) {

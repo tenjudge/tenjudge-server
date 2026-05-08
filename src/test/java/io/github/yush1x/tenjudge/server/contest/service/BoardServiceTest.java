@@ -224,6 +224,78 @@ class BoardServiceTest {
     }
 
     @Test
+    void handleJudgeResult_frozenSubmissionsOnlyUpdateAttemptsAfterFreeze() {
+        LocalDateTime startTime = LocalDateTime.of(2026, 5, 3, 10, 0);
+        LocalDateTime freezeTime = startTime.plusMinutes(30);
+        Submission beforeFreezeWrong = Submission.builder()
+                .id(1L)
+                .contestId(10L)
+                .submitterId(2L)
+                .problemId(1001L)
+                .status("WRONG_ANSWER")
+                .submitTime(startTime.plusMinutes(12))
+                .build();
+        Submission acceptedAtFreeze = Submission.builder()
+                .id(2L)
+                .contestId(10L)
+                .submitterId(2L)
+                .problemId(1001L)
+                .status("ACCEPTED")
+                .submitTime(freezeTime)
+                .build();
+        Submission afterFreezeWrong = Submission.builder()
+                .id(3L)
+                .contestId(10L)
+                .submitterId(2L)
+                .problemId(1001L)
+                .status("WRONG_ANSWER")
+                .submitTime(startTime.plusMinutes(35))
+                .build();
+        Submission afterFreezePending = Submission.builder()
+                .id(4L)
+                .contestId(10L)
+                .submitterId(2L)
+                .problemId(1001L)
+                .status("PENDING")
+                .submitTime(startTime.plusMinutes(36))
+                .build();
+        Submission afterFreezeSystemError = Submission.builder()
+                .id(5L)
+                .contestId(10L)
+                .submitterId(2L)
+                .problemId(1001L)
+                .status("SYSTEM_ERROR")
+                .submitTime(startTime.plusMinutes(37))
+                .build();
+        Contest contest = contest(10L, startTime, startTime.plusHours(2));
+        contest.setFreezeTime(freezeTime);
+        ContestParticipant participant = participant(2L, "alice", 0, 0, 0);
+
+        when(submissionQueryService.select(2L)).thenReturn(acceptedAtFreeze);
+        when(contestQueryService.select(10L)).thenReturn(contest);
+        when(contestParticipantQueryService.select(10L, 2L)).thenReturn(participant);
+        when(submissionQueryService.selectBoardSubmissions(10L, 2L))
+                .thenReturn(List.of(beforeFreezeWrong, acceptedAtFreeze, afterFreezeWrong, afterFreezePending, afterFreezeSystemError));
+        when(redisTemplate.hasKey("contest:10:exist")).thenReturn(true);
+
+        boardService.handleJudgeResult(2L);
+
+        ArgumentCaptor<ContestParticipant> participantCaptor = ArgumentCaptor.forClass(ContestParticipant.class);
+        verify(contestParticipantUpdateService).update(participantCaptor.capture());
+        ContestParticipant updatedParticipant = participantCaptor.getValue();
+        ProblemResultDTO problemResult = updatedParticipant.getProblemResults().get(1001L);
+        assertFalse(problemResult.isAccepted());
+        assertEquals(0, problemResult.getAcceptedAt());
+        assertEquals(1, problemResult.getWrongAttemptsBeforeAc());
+        assertEquals(2, problemResult.getAttemptsAfterFreeze());
+        assertEquals(0, updatedParticipant.getSolvedCount());
+        assertEquals(0, updatedParticipant.getPenalty());
+        assertEquals(0, updatedParticipant.getLastAcceptedTime());
+        verify(zSetOperations).add("contest:10:rank", 2L, 0.0);
+        verify(valueOperations).set("contest:10:participant:2:detail", updatedParticipant, Duration.ofHours(24));
+    }
+
+    @Test
     void handleJudgeResult_systemError_doesNotUpdateBoard() {
         LocalDateTime startTime = LocalDateTime.of(2026, 5, 3, 10, 0);
         Submission submission = Submission.builder()
