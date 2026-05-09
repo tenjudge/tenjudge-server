@@ -64,6 +64,7 @@ name 比赛名称
 start_time 比赛开始时间
 end_time 比赛结束时间
 freeze_time 封榜开始时间，可为空，为空表示不封榜
+board_refreshed_at 榜单解除封榜刷新完成时间，可为空；为空表示尚未刷新或不需要解除封榜
 penalty_per_wrong 每次错误提交的罚时，非空，默认值为0
 ```
 
@@ -123,7 +124,9 @@ contest_page:current:{current}:size:{size} 比赛分页列表公共数据缓存�
 
 #### 数据更新
 
-后续处理提交并更新榜单时，会先通过 `lock:contest:{contestId}:user:{userId}:board` 串行化同一用户同一场比赛的榜单更新，再按提交时间和提交 ID 正序读取该用户本场非 Agent 提交并重算 `contest_participant` 整行快照。这样可以避免评测完成消息乱序、重复投递或并发消费导致 AC 前错误次数、罚时和过题数计算不一致。封榜判断只关心提交发生时间，`submitTime >= freezeTime` 算封榜后提交；封榜后的非 `PENDING`、非 `SYSTEM_ERROR` 提交只增加 `attemptsAfterFreeze`，不影响可见榜单排名字段。数据库快照更新成功后，再根据当前行数据修改ZSET中某一用户的分数和String中的详细信息。
+后续处理提交并更新榜单时，会先通过 `lock:contest:{contestId}:user:{userId}:board` 串行化同一用户同一场比赛的榜单更新，再按提交时间和提交 ID 正序读取该用户本场非 Agent 提交并重算 `contest_participant` 整行快照。这样可以避免评测完成消息乱序、重复投递或并发消费导致 AC 前错误次数、罚时和过题数计算不一致。比赛结束前的封榜判断只关心提交发生时间，`submitTime >= freezeTime` 算封榜后提交；封榜后的非 `PENDING`、非 `SYSTEM_ERROR` 提交只增加 `attemptsAfterFreeze`，不影响可见榜单排名字段。比赛结束后，定时任务会扫描 `freeze_time is not null`、`end_time <= now` 且 `board_refreshed_at is null` 的比赛，通过 `BoardService.refreshContestBoard()` 重新刷新整场榜单并写入 `board_refreshed_at`，此时封榜后的有效提交会正常计入榜单快照。数据库快照更新成功后，再根据当前行数据修改ZSET中某一用户的分数和String中的详细信息。
+
+管理员修改比赛开始时间、结束时间或封榜时间后，会清空 `board_refreshed_at`；若比赛已经开始，则立即重算当前榜单快照，避免继续展示旧时间边界下的数据。
 
 排名时以过题数为第一关键字，罚时为第二关键字，最后一次有效AC提交时间为第三关键字，故ZSET缓存中，分数的计算逻辑如下：
 

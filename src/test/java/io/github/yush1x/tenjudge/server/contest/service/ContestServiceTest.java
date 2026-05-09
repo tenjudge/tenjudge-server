@@ -136,6 +136,9 @@ class ContestServiceTest {
     void updateContest_validRequest_updatesContestAndReplacesProblems() {
         Contest contest = new Contest();
         contest.setId(1L);
+        contest.setStartTime(LocalDateTime.of(2026, 4, 25, 18, 0));
+        contest.setEndTime(LocalDateTime.of(2026, 4, 25, 20, 0));
+        contest.setFreezeTime(LocalDateTime.of(2026, 4, 25, 19, 30));
         when(contestQueryService.select(1L)).thenReturn(contest);
         when(problemQueryService.selectByIds(anyCollection())).thenReturn(List.of(problem(1001L), problem(1002L)));
 
@@ -163,6 +166,9 @@ class ContestServiceTest {
     void updateContest_emptyContestProblems_replacesWithEmptyList() {
         Contest contest = new Contest();
         contest.setId(1L);
+        contest.setStartTime(LocalDateTime.of(2026, 4, 25, 18, 0));
+        contest.setEndTime(LocalDateTime.of(2026, 4, 25, 20, 0));
+        contest.setFreezeTime(LocalDateTime.of(2026, 4, 25, 19, 30));
         UpdateContestRequest request = validUpdateRequest();
         request.setContestProblems(new ArrayList<>());
         when(contestQueryService.select(1L)).thenReturn(contest);
@@ -177,6 +183,9 @@ class ContestServiceTest {
     void updateContest_nullPenaltyPerWrong_defaultsToZero() {
         Contest contest = new Contest();
         contest.setId(1L);
+        contest.setStartTime(LocalDateTime.of(2026, 4, 25, 18, 0));
+        contest.setEndTime(LocalDateTime.of(2026, 4, 25, 20, 0));
+        contest.setFreezeTime(LocalDateTime.of(2026, 4, 25, 19, 30));
         UpdateContestRequest request = validUpdateRequest();
         request.setPenaltyPerWrong(null);
         when(contestQueryService.select(1L)).thenReturn(contest);
@@ -187,6 +196,29 @@ class ContestServiceTest {
         ArgumentCaptor<Contest> contestCaptor = ArgumentCaptor.forClass(Contest.class);
         verify(contestUpdateService).update(eq(1L), contestCaptor.capture());
         assertEquals(0, contestCaptor.getValue().getPenaltyPerWrong());
+    }
+
+    @Test
+    void updateContest_timeChanged_resetsRefreshesAndMarksEndedFrozenBoard() {
+        Contest contest = new Contest();
+        contest.setId(1L);
+        contest.setStartTime(LocalDateTime.now().minusHours(4));
+        contest.setEndTime(LocalDateTime.now().minusHours(2));
+        contest.setFreezeTime(LocalDateTime.now().minusHours(3));
+        contest.setBoardRefreshedAt(LocalDateTime.now().minusMinutes(30));
+        UpdateContestRequest request = validUpdateRequest();
+        request.setStartTime(LocalDateTime.now().minusHours(3));
+        request.setEndTime(LocalDateTime.now().minusHours(1));
+        request.setFreezeTime(LocalDateTime.now().minusHours(2));
+
+        when(contestQueryService.select(1L)).thenReturn(contest);
+        when(problemQueryService.selectByIds(anyCollection())).thenReturn(List.of(problem(1001L), problem(1002L)));
+
+        contestService.updateContest(request);
+
+        verify(contestUpdateService).resetBoardRefreshedAt(1L);
+        verify(boardService).refreshContestBoard(1L);
+        verify(contestUpdateService).markBoardRefreshed(eq(1L), any(LocalDateTime.class));
     }
 
     @Test

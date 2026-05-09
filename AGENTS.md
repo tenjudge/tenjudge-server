@@ -172,11 +172,12 @@
 - `GET /contest` 会缓存比赛分页列表公共数据，TTL 名称使用 `contest-list`；登录用户报名态和实时结束状态不要写入分页公共缓存，后续应只在 `ContestService` 中按请求拼接。
 - 修改比赛元数据或题目编排写入链路时，必须在方法末尾同步失效 `contest_problem:contest:{contestId}` 与 `contest_detail:contest:{contestId}`。
 - 榜单预热只筛选未来 5 分钟内开始且尚未存在 `contest:{contestId}:rank` / `contest:{contestId}:exist` 的比赛；预热写入必须通过 `lock:contest:{contestId}:board-preload` 做比赛维度互斥。
+- 已封榜比赛结束后由 `BoardService.refreshEndedContestBoards()` 定时刷新整场榜单并写入 `contest.board_refreshed_at`；管理员修改比赛开始时间、结束时间或封榜时间时必须清空该字段，已开始比赛还需要立即重算当前榜单快照。
 - 不要为了极短的字符串拼接、单行转发或没有复用价值的逻辑新开 private 方法；这类代码优先保持内联，除非能明显降低复杂度或表达业务约束。
 - 比赛题目编排依赖题目真实存在性校验，不能只依赖数据库约束兜底；同一场比赛内 `problemId` 和 `problemIndex` 都必须唯一。
 - `contest_participant.problem_results` 使用 `problemId` 作为 `jsonb` key，Java 值对象为 `contest/dto/ProblemResultDTO`；`acceptedAt` 存首次通过时距离比赛开始的分钟数，不存时间戳；`attemptsAfterFreeze` 存封榜后的有效提交次数。
 - `ContestParticipant.markRejected()` / `markAccepted()` / `markFrozenAttempt()` 是榜单题目结果和聚合字段的统一更新入口；修改榜单聚合逻辑时，需同时保证 Java 强类型结构与 PostgreSQL 存储结构一致。
-- 封榜判断只看提交发生时间，`submitTime >= freezeTime` 算封榜后提交；封榜后的非 `PENDING`、非 `SYSTEM_ERROR` 提交只增加 `attemptsAfterFreeze`，不影响 `solvedCount`、`penalty`、`lastAcceptedTime`、`acceptedAt` 和 `wrongAttemptsBeforeAc`。
+- 比赛结束前的封榜判断看提交发生时间，`submitTime >= freezeTime` 算封榜后提交；封榜后的非 `PENDING`、非 `SYSTEM_ERROR` 提交只增加 `attemptsAfterFreeze`，不影响 `solvedCount`、`penalty`、`lastAcceptedTime`、`acceptedAt` 和 `wrongAttemptsBeforeAc`。比赛结束后可通过 `BoardService.refreshContestBoard()` 重新刷新榜单解除封榜，此时封榜后的有效提交会正常计入榜单快照。
 
 ### 3.4 Submit
 

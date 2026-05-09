@@ -34,6 +34,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 @Service
@@ -84,7 +85,8 @@ public class ContestService {
 
         Long contestId = request.getContestId();
         // 更新前必须先确认比赛存在
-        if (contestQueryService.select(contestId) == null) {
+        Contest existingContest = contestQueryService.select(contestId);
+        if (existingContest == null) {
             throw new BizException(Code.CONTEST_NOT_FOUND);
         }
 
@@ -128,6 +130,19 @@ public class ContestService {
         contestUpdateService.update(contestId, contest);
 
         contestProblemUpdateService.replaceByContestId(contestId, contestProblems); // 题目编排采用全量覆盖：先删旧数据，再插入新数据
+        if (!Objects.equals(existingContest.getStartTime(), request.getStartTime())
+                || !Objects.equals(existingContest.getEndTime(), request.getEndTime())
+                || !Objects.equals(existingContest.getFreezeTime(), request.getFreezeTime())) {
+            contestUpdateService.resetBoardRefreshedAt(contestId);
+            LocalDateTime now = LocalDateTime.now();
+            if (!now.isBefore(request.getStartTime())) {
+                // 比赛时间或封榜时间变化后，已开始比赛需要立即重算当前榜单快照，避免继续展示旧封榜边界下的数据。
+                boardService.refreshContestBoard(contestId);
+                if (request.getFreezeTime() != null && !request.getEndTime().isAfter(now)) {
+                    contestUpdateService.markBoardRefreshed(contestId, now);
+                }
+            }
+        }
         contestCacheService.evictContestCaches(contestId); // 方法末尾统一删除比赛相关缓存，后续读取会重新回源
     }
 

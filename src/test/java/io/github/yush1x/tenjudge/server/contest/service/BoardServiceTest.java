@@ -8,6 +8,7 @@ import io.github.yush1x.tenjudge.server.contest.entity.ContestParticipant;
 import io.github.yush1x.tenjudge.server.contest.persistence.ContestParticipantQueryService;
 import io.github.yush1x.tenjudge.server.contest.persistence.ContestParticipantUpdateService;
 import io.github.yush1x.tenjudge.server.contest.persistence.ContestQueryService;
+import io.github.yush1x.tenjudge.server.contest.persistence.ContestUpdateService;
 import io.github.yush1x.tenjudge.server.contest.vo.BoardPageVO;
 import io.github.yush1x.tenjudge.server.contest.vo.ContestDetailVO;
 import io.github.yush1x.tenjudge.server.contest.vo.ContestProblemBriefVO;
@@ -38,6 +39,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -50,6 +52,7 @@ class BoardServiceTest {
     private ContestQueryService contestQueryService;
     private ContestParticipantQueryService contestParticipantQueryService;
     private ContestParticipantUpdateService contestParticipantUpdateService;
+    private ContestUpdateService contestUpdateService;
     private ContestCacheService contestCacheService;
     private ContestRequestChecker contestRequestChecker;
     private RedisTemplate<String, Object> redisTemplate;
@@ -66,6 +69,7 @@ class BoardServiceTest {
         contestQueryService = mock(ContestQueryService.class);
         contestParticipantQueryService = mock(ContestParticipantQueryService.class);
         contestParticipantUpdateService = mock(ContestParticipantUpdateService.class);
+        contestUpdateService = mock(ContestUpdateService.class);
         contestCacheService = mock(ContestCacheService.class);
         contestRequestChecker = new ContestRequestChecker();
         redisTemplate = mock(RedisTemplate.class);
@@ -89,6 +93,7 @@ class BoardServiceTest {
                 contestQueryService,
                 contestParticipantQueryService,
                 contestParticipantUpdateService,
+                contestUpdateService,
                 contestCacheService,
                 contestRequestChecker,
                 redisTemplate,
@@ -225,7 +230,7 @@ class BoardServiceTest {
 
     @Test
     void handleJudgeResult_frozenSubmissionsOnlyUpdateAttemptsAfterFreeze() {
-        LocalDateTime startTime = LocalDateTime.of(2026, 5, 3, 10, 0);
+        LocalDateTime startTime = LocalDateTime.now().minusMinutes(40);
         LocalDateTime freezeTime = startTime.plusMinutes(30);
         Submission beforeFreezeWrong = Submission.builder()
                 .id(1L)
@@ -267,7 +272,7 @@ class BoardServiceTest {
                 .status("SYSTEM_ERROR")
                 .submitTime(startTime.plusMinutes(37))
                 .build();
-        Contest contest = contest(10L, startTime, startTime.plusHours(2));
+        Contest contest = contest(10L, startTime, LocalDateTime.now().plusHours(1));
         contest.setFreezeTime(freezeTime);
         ContestParticipant participant = participant(2L, "alice", 0, 0, 0);
 
@@ -293,6 +298,52 @@ class BoardServiceTest {
         assertEquals(0, updatedParticipant.getLastAcceptedTime());
         verify(zSetOperations).add("contest:10:rank", 2L, 0.0);
         verify(valueOperations).set("contest:10:participant:2:detail", updatedParticipant, Duration.ofHours(24));
+    }
+
+    @Test
+    void handleJudgeResult_afterContestEnd_countsFrozenSubmissionsNormally() {
+        LocalDateTime startTime = LocalDateTime.now().minusHours(2);
+        LocalDateTime freezeTime = startTime.plusMinutes(30);
+        Submission beforeFreezeWrong = Submission.builder()
+                .id(1L)
+                .contestId(10L)
+                .submitterId(2L)
+                .problemId(1001L)
+                .status("WRONG_ANSWER")
+                .submitTime(startTime.plusMinutes(12))
+                .build();
+        Submission acceptedAtFreeze = Submission.builder()
+                .id(2L)
+                .contestId(10L)
+                .submitterId(2L)
+                .problemId(1001L)
+                .status("ACCEPTED")
+                .submitTime(freezeTime)
+                .build();
+        Contest contest = contest(10L, startTime, LocalDateTime.now().minusMinutes(1));
+        contest.setFreezeTime(freezeTime);
+        ContestParticipant participant = participant(2L, "alice", 0, 0, 0);
+
+        when(submissionQueryService.select(2L)).thenReturn(acceptedAtFreeze);
+        when(contestQueryService.select(10L)).thenReturn(contest);
+        when(contestParticipantQueryService.select(10L, 2L)).thenReturn(participant);
+        when(submissionQueryService.selectBoardSubmissions(10L, 2L)).thenReturn(List.of(beforeFreezeWrong, acceptedAtFreeze));
+        when(redisTemplate.hasKey("contest:10:exist")).thenReturn(true);
+
+        boardService.handleJudgeResult(2L);
+
+        ArgumentCaptor<ContestParticipant> participantCaptor = ArgumentCaptor.forClass(ContestParticipant.class);
+        verify(contestParticipantUpdateService).update(participantCaptor.capture());
+        ContestParticipant updatedParticipant = participantCaptor.getValue();
+        ProblemResultDTO problemResult = updatedParticipant.getProblemResults().get(1001L);
+        assertTrue(problemResult.isAccepted());
+        assertEquals(30, problemResult.getAcceptedAt());
+        assertEquals(1, problemResult.getWrongAttemptsBeforeAc());
+        assertEquals(0, problemResult.getAttemptsAfterFreeze());
+        assertEquals(1, updatedParticipant.getSolvedCount());
+        assertEquals(50, updatedParticipant.getPenalty());
+        assertEquals(30, updatedParticipant.getLastAcceptedTime());
+        verify(zSetOperations).add("contest:10:rank", 2L, -999_949_999_970.0);
     }
 
     @Test
@@ -419,6 +470,139 @@ class BoardServiceTest {
         assertThrows(BizException.class, () -> boardService.queryBoardPage(10L, 1L, 50L));
 
         verifyNoInteractions(contestParticipantQueryService);
+    }
+
+    @Test
+    void refreshContestBoard_recomputesAllParticipantsAndRefreshesExistingCache() {
+        LocalDateTime startTime = LocalDateTime.now().minusHours(2);
+        Contest contest = contest(10L, startTime, LocalDateTime.now().minusMinutes(1));
+        contest.setFreezeTime(startTime.plusMinutes(30));
+        ContestParticipant alice = participant(2L, "alice", 0, 0, 0);
+        ContestParticipant bob = participant(3L, "bob", 0, 0, 0);
+        Submission aliceWrong = Submission.builder()
+                .id(1L)
+                .contestId(10L)
+                .submitterId(2L)
+                .problemId(1001L)
+                .status("WRONG_ANSWER")
+                .submitTime(startTime.plusMinutes(12))
+                .build();
+        Submission aliceAcceptedAfterFreeze = Submission.builder()
+                .id(2L)
+                .contestId(10L)
+                .submitterId(2L)
+                .problemId(1001L)
+                .status("ACCEPTED")
+                .submitTime(startTime.plusMinutes(40))
+                .build();
+        Submission bobWrongAfterFreeze = Submission.builder()
+                .id(3L)
+                .contestId(10L)
+                .submitterId(3L)
+                .problemId(1002L)
+                .status("WRONG_ANSWER")
+                .submitTime(startTime.plusMinutes(35))
+                .build();
+        Submission bobPending = Submission.builder()
+                .id(4L)
+                .contestId(10L)
+                .submitterId(3L)
+                .problemId(1002L)
+                .status("PENDING")
+                .submitTime(startTime.plusMinutes(36))
+                .build();
+
+        when(contestQueryService.select(10L)).thenReturn(contest);
+        when(redisTemplate.hasKey("contest:10:exist")).thenReturn(true);
+        when(contestParticipantQueryService.selectByContestId(10L)).thenReturn(List.of(alice, bob));
+        when(submissionQueryService.selectBoardSubmissions(10L, 2L)).thenReturn(List.of(aliceWrong, aliceAcceptedAfterFreeze));
+        when(submissionQueryService.selectBoardSubmissions(10L, 3L)).thenReturn(List.of(bobWrongAfterFreeze, bobPending));
+
+        boardService.refreshContestBoard(10L);
+
+        ProblemResultDTO aliceResult = alice.getProblemResults().get(1001L);
+        assertTrue(aliceResult.isAccepted());
+        assertEquals(40, aliceResult.getAcceptedAt());
+        assertEquals(1, aliceResult.getWrongAttemptsBeforeAc());
+        assertEquals(0, aliceResult.getAttemptsAfterFreeze());
+        assertEquals(1, alice.getSolvedCount());
+        assertEquals(60, alice.getPenalty());
+        assertEquals(40, alice.getLastAcceptedTime());
+
+        ProblemResultDTO bobResult = bob.getProblemResults().get(1002L);
+        assertFalse(bobResult.isAccepted());
+        assertEquals(1, bobResult.getWrongAttemptsBeforeAc());
+        assertEquals(0, bobResult.getAttemptsAfterFreeze());
+        assertEquals(0, bob.getSolvedCount());
+        assertEquals(0, bob.getPenalty());
+
+        verify(contestParticipantUpdateService).update(alice);
+        verify(contestParticipantUpdateService).update(bob);
+        verify(zSetOperations).add("contest:10:rank", 2L, -999_939_999_960.0);
+        verify(zSetOperations).add("contest:10:rank", 3L, 0.0);
+        verify(valueOperations).set("contest:10:participant:2:detail", alice, Duration.ofHours(24));
+        verify(valueOperations).set("contest:10:participant:3:detail", bob, Duration.ofHours(24));
+    }
+
+    @Test
+    void refreshContestBoard_beforeContestEnd_keepsFrozenSubmissionsHidden() {
+        LocalDateTime startTime = LocalDateTime.now().minusMinutes(40);
+        Contest contest = contest(10L, startTime, LocalDateTime.now().plusHours(1));
+        contest.setFreezeTime(startTime.plusMinutes(30));
+        ContestParticipant alice = participant(2L, "alice", 0, 0, 0);
+        Submission acceptedAfterFreeze = Submission.builder()
+                .id(1L)
+                .contestId(10L)
+                .submitterId(2L)
+                .problemId(1001L)
+                .status("ACCEPTED")
+                .submitTime(startTime.plusMinutes(35))
+                .build();
+
+        when(contestQueryService.select(10L)).thenReturn(contest);
+        when(redisTemplate.hasKey("contest:10:exist")).thenReturn(false);
+        when(contestParticipantQueryService.selectByContestId(10L)).thenReturn(List.of(alice));
+        when(submissionQueryService.selectBoardSubmissions(10L, 2L)).thenReturn(List.of(acceptedAfterFreeze));
+
+        boardService.refreshContestBoard(10L);
+
+        ProblemResultDTO problemResult = alice.getProblemResults().get(1001L);
+        assertFalse(problemResult.isAccepted());
+        assertEquals(1, problemResult.getAttemptsAfterFreeze());
+        assertEquals(0, alice.getSolvedCount());
+        assertEquals(0, alice.getPenalty());
+        verify(contestParticipantUpdateService).update(alice);
+        verify(zSetOperations, never()).add(any(), any(), anyDouble());
+    }
+
+    @Test
+    void refreshContestBoard_missingContest_throwsBizException() {
+        when(contestQueryService.select(10L)).thenReturn(null);
+
+        assertThrows(BizException.class, () -> boardService.refreshContestBoard(10L));
+
+        verifyNoInteractions(contestParticipantQueryService, contestParticipantUpdateService);
+        verify(redisTemplate, never()).hasKey(any());
+    }
+
+    @Test
+    void refreshEndedContestBoards_refreshesEndedFrozenContestAndMarksRefreshed() throws InterruptedException {
+        Contest listContest = new Contest();
+        listContest.setId(10L);
+        Contest contest = contest(10L, LocalDateTime.now().minusHours(2), LocalDateTime.now().minusMinutes(1));
+        contest.setFreezeTime(LocalDateTime.now().minusMinutes(30));
+
+        when(contestQueryService.selectEndedUnrefreshedBoardContests(any())).thenReturn(List.of(listContest));
+        when(contestQueryService.select(10L)).thenReturn(contest);
+        when(contestParticipantQueryService.selectByContestId(10L)).thenReturn(List.of());
+        when(redisTemplate.hasKey("contest:10:exist")).thenReturn(false);
+        when(redissonClient.getLock("lock:contest:10:board-refresh")).thenReturn(lock);
+        when(lock.tryLock(0, 30, TimeUnit.SECONDS)).thenReturn(true);
+
+        boardService.refreshEndedContestBoards();
+
+        verify(contestUpdateService).markBoardRefreshed(eq(10L), any(LocalDateTime.class));
+        verify(lock).unlock();
     }
 
     @Test

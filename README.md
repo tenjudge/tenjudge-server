@@ -62,6 +62,7 @@ Redis 缓存 TTL 的实现方式统一写在这里：TTL 配置集中在 `app.ca
 - `lock:problem:{problemId}` 用于题目数据更新的分布式读写锁
 - `lock:cache:{cacheKey}` 用于防止缓存击穿的分布式锁
 - `lock:contest:{contestId}:board-preload` 用于防止多实例定时任务重复预热同一场比赛榜单
+- `lock:contest:{contestId}:board-refresh` 用于防止多实例定时任务重复刷新同一场已结束比赛榜单
 - `lock:contest:{contestId}:user:{userId}:board` 用于串行化同一用户同一场比赛的榜单重算
 
 

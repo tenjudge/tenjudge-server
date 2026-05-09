@@ -81,6 +81,7 @@ CREATE TABLE contest (
     start_time TIMESTAMP NOT NULL,
     end_time TIMESTAMP NOT NULL,
     freeze_time TIMESTAMP,
+    board_refreshed_at TIMESTAMP,
     penalty_per_wrong INTEGER NOT NULL DEFAULT 0
 );
 

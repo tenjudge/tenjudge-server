@@ -47,4 +47,15 @@ public class ContestQueryService {
                 .orderByAsc(Contest::getId);
         return contestMapper.selectList(wrapper);
     }
+
+    public List<Contest> selectEndedUnrefreshedBoardContests(LocalDateTime now) {
+        LambdaQueryWrapper<Contest> wrapper = new LambdaQueryWrapper<>();
+        wrapper.select(Contest::getId)
+                .isNotNull(Contest::getFreezeTime)
+                .isNull(Contest::getBoardRefreshedAt)
+                .le(Contest::getEndTime, now)
+                .orderByAsc(Contest::getEndTime)
+                .orderByAsc(Contest::getId);
+        return contestMapper.selectList(wrapper);
+    }
 }
