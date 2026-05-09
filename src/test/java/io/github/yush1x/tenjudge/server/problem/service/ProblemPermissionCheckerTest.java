@@ -135,6 +135,7 @@ class ProblemPermissionCheckerTest {
         );
 
         assertEquals(Code.FORBIDDEN, ex.getCode());
+        assertEquals("contest registration required", ex.getMessage());
     }
 
     @Test

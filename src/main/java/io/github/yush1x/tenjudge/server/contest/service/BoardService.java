@@ -17,6 +17,7 @@ import io.github.yush1x.tenjudge.server.exception.BizException;
 import io.github.yush1x.tenjudge.server.submit.entity.Submission;
 import io.github.yush1x.tenjudge.server.submit.persistence.SubmissionQueryService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Value;
@@ -41,6 +42,7 @@ import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class BoardService {
 
     private final SubmissionQueryService submissionQueryService;
@@ -195,6 +197,7 @@ public class BoardService {
 
     @Scheduled(fixedRate = 60000)
     public void refreshEndedContestBoards() {
+        log.info("开始执行已结束比赛榜单自动刷新定时任务");
         LocalDateTime now = LocalDateTime.now();
         for (Contest contest : contestQueryService.selectEndedUnrefreshedBoardContests(now)) {
             Long contestId = contest.getId();
@@ -381,6 +384,7 @@ public class BoardService {
 
     @Scheduled(fixedRate = 180000) // 每3分钟预热一次5分钟内即将开始的比赛的榜单缓存
     public void preloadUpcomingContest() {
+        log.info("开始执行即将开始比赛榜单缓存预热定时任务");
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime deadline = now.plusMinutes(5);
 

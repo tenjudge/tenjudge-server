@@ -65,7 +65,7 @@ public class ProblemPermissionChecker {
             throw new BizException(Code.FORBIDDEN);
         }
         if (contestParticipantQueryService.select(contestId, userId) == null) {
-            throw new BizException(Code.FORBIDDEN);
+            throw new BizException(Code.FORBIDDEN, "contest registration required");
         }
     }
 

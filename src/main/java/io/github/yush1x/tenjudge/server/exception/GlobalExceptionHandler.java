@@ -17,7 +17,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler
     public Result<Void> handleBizException(BizException e) {
-        log.info("业务异常", e);
+        log.info("业务异常: code={}, message={}", e.getCode(), e.getMessage());
         return Result.error(e.getCode(), e.getMessage());
     }
 }
