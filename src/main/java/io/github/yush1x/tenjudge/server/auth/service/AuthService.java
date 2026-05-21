@@ -8,6 +8,7 @@ import io.github.yush1x.tenjudge.server.auth.entity.User;
 import io.github.yush1x.tenjudge.server.auth.persistence.UserQueryService;
 import io.github.yush1x.tenjudge.server.auth.persistence.UserUpdateService;
 import io.github.yush1x.tenjudge.server.auth.utils.Converter;
+import io.github.yush1x.tenjudge.server.auth.vo.CurrentUserIdVO;
 import io.github.yush1x.tenjudge.server.auth.vo.LoginVO;
 import io.github.yush1x.tenjudge.server.auth.vo.RegisterVO;
 import io.github.yush1x.tenjudge.server.auth.vo.UserVO;
@@ -126,6 +127,16 @@ public class AuthService {
             throw new BizException(Code.USER_NOT_FOUND);
         }
         return Converter.toUserVO(user);
+    }
+
+    // 前端初始化登录态时只需要轻量用户 ID；未登录或 token 残留但用户已删除时按匿名态处理。
+    public CurrentUserIdVO getCurrentUserId() {
+        CurrentUserIdVO currentUserIdVO = new CurrentUserIdVO();
+        if (!stpService.isLogin()) {
+            return currentUserIdVO;
+        }
+        currentUserIdVO.setUserId(stpService.getLoginIdAsLong());
+        return currentUserIdVO;
     }
 
     // 公开用户信息允许匿名查询，但邮箱属于登录凭据相关字段，返回前必须脱敏。

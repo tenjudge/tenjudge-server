@@ -4,6 +4,7 @@ import io.github.yush1x.tenjudge.server.auth.dto.LoginRequest;
 import io.github.yush1x.tenjudge.server.auth.dto.RegisterRequest;
 import io.github.yush1x.tenjudge.server.auth.dto.UserRoleUpdateRequest;
 import io.github.yush1x.tenjudge.server.auth.service.AuthService;
+import io.github.yush1x.tenjudge.server.auth.vo.CurrentUserIdVO;
 import io.github.yush1x.tenjudge.server.auth.vo.LoginVO;
 import io.github.yush1x.tenjudge.server.auth.vo.RegisterVO;
 import io.github.yush1x.tenjudge.server.auth.vo.UserVO;
@@ -166,6 +167,22 @@ public class AuthController {
     )
     public Result<UserVO> me() {
         return Result.success(authService.getCurrentUser());
+    }
+
+    @GetMapping("/me/id")
+    @Operation(
+        summary = "查询当前 token 对应的用户 ID",
+        description = "根据当前 token 获取用户 ID。未登录或 token 对应用户不存在时不抛业务错误，返回 data.userId=null。",
+        operationId = "getCurrentUserId",
+        parameters = @Parameter(
+            name = "tenjudge-token",
+            in = ParameterIn.HEADER,
+            description = "登录接口返回的 tokenValue。未携带或无效时返回 userId=null。",
+            required = false
+        )
+    )
+    public Result<CurrentUserIdVO> currentUserId() {
+        return Result.success(authService.getCurrentUserId());
     }
 
     @GetMapping("/user")

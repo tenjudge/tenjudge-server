@@ -7,6 +7,7 @@ import io.github.yush1x.tenjudge.server.auth.dto.UserRoleUpdateRequest;
 import io.github.yush1x.tenjudge.server.auth.entity.User;
 import io.github.yush1x.tenjudge.server.auth.persistence.UserQueryService;
 import io.github.yush1x.tenjudge.server.auth.persistence.UserUpdateService;
+import io.github.yush1x.tenjudge.server.auth.vo.CurrentUserIdVO;
 import io.github.yush1x.tenjudge.server.auth.vo.UserVO;
 import io.github.yush1x.tenjudge.server.common.Code;
 import io.github.yush1x.tenjudge.server.exception.BizException;
@@ -27,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -276,6 +278,43 @@ public class AuthServiceTest {
         BizException ex = assertThrows(BizException.class, () -> authService.getCurrentUser());
 
         assertEquals(Code.USER_NOT_FOUND, ex.getCode());
+    }
+
+    @Test
+    // 前端轻量探测登录态时，未登录不应抛 UNAUTHORIZED，而是返回 userId=null。
+    public void getCurrentUserId_notLogin_returnsNullUserId() {
+        when(stpService.isLogin()).thenReturn(false);
+
+        CurrentUserIdVO currentUserIdVO = authService.getCurrentUserId();
+
+        assertNull(currentUserIdVO.getUserId());
+        verify(stpService, never()).getLoginIdAsLong();
+    }
+
+    @Test
+    // token 有效且用户仍存在时，直接返回当前用户 ID，避免前端为了 ID 再拉完整用户信息。
+    public void getCurrentUserId_loginUserExists_returnsUserId() {
+        User user = new User();
+        user.setId(7L);
+        when(stpService.isLogin()).thenReturn(true);
+        when(stpService.getLoginIdAsLong()).thenReturn(7L);
+        when(userQueryService.selectById(7L)).thenReturn(user);
+
+        CurrentUserIdVO currentUserIdVO = authService.getCurrentUserId();
+
+        assertEquals(7L, currentUserIdVO.getUserId());
+    }
+
+    @Test
+    // token 残留但用户记录已删除时按未识别用户处理，保持接口稳定返回成功包装。
+    public void getCurrentUserId_loginUserMissing_returnsNullUserId() {
+        when(stpService.isLogin()).thenReturn(true);
+        when(stpService.getLoginIdAsLong()).thenReturn(7L);
+        when(userQueryService.selectById(7L)).thenReturn(null);
+
+        CurrentUserIdVO currentUserIdVO = authService.getCurrentUserId();
+
+        assertNull(currentUserIdVO.getUserId());
     }
 
     @Test
