@@ -294,27 +294,25 @@ public class AuthServiceTest {
     @Test
     // token 有效且用户仍存在时，直接返回当前用户 ID，避免前端为了 ID 再拉完整用户信息。
     public void getCurrentUserId_loginUserExists_returnsUserId() {
-        User user = new User();
-        user.setId(7L);
         when(stpService.isLogin()).thenReturn(true);
         when(stpService.getLoginIdAsLong()).thenReturn(7L);
-        when(userQueryService.selectById(7L)).thenReturn(user);
 
         CurrentUserIdVO currentUserIdVO = authService.getCurrentUserId();
 
         assertEquals(7L, currentUserIdVO.getUserId());
+        verify(userQueryService, never()).selectById(7L);
     }
 
     @Test
-    // token 残留但用户记录已删除时按未识别用户处理，保持接口稳定返回成功包装。
-    public void getCurrentUserId_loginUserMissing_returnsNullUserId() {
+    // 轻量登录态探测只读取 Sa-Token 登录 ID，不额外查询数据库确认用户记录是否存在。
+    public void getCurrentUserId_loginUserExists_doesNotQueryDatabase() {
         when(stpService.isLogin()).thenReturn(true);
         when(stpService.getLoginIdAsLong()).thenReturn(7L);
-        when(userQueryService.selectById(7L)).thenReturn(null);
 
         CurrentUserIdVO currentUserIdVO = authService.getCurrentUserId();
 
-        assertNull(currentUserIdVO.getUserId());
+        assertEquals(7L, currentUserIdVO.getUserId());
+        verify(userQueryService, never()).selectById(7L);
     }
 
     @Test
